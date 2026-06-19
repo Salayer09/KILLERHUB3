@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V6.0 (KINETIC ADAPT ENGINE & RANGE BALANCER)
+-- 👻 KILLER HUB | MURDER SUITE V6.5 (KINETIC CALIBRATOR - FIXED BALISTICS)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/refs/heads/main/Sheriff.lua"))()
 
@@ -30,7 +30,7 @@ local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local Camera = workspace.CurrentCamera
 
--- Tablas de memoria global para suavizado físico y renderizado sin jitter
+-- Tablas de memoria global para suavizado físico
 local playerFysics = {}
 local lastVisualPosition = Vector3.new(0, 0, 0)
 local lastActualPosition = Vector3.new(0, 0, 0)
@@ -48,7 +48,7 @@ FOVCircle.NumSides = 64
 FOVCircle.Filled = false
 FOVCircle.Visible = false 
 
--- Círculo Exterior Hueco Compacto Elegante
+-- Círculo Exterior Hueco Compacto Elegante (Radio 6.0)
 local PredRingOuter = Drawing.new("Circle")
 PredRingOuter.Radius = 6.0
 PredRingOuter.Thickness = 1.2
@@ -72,7 +72,7 @@ PredLine.Transparency = 0.65
 PredLine.Visible = false
 
 -- ============================================================================
--- 🧠 MOTOR BALÍSTICO DE FÚSICA ADAPTATIVA KINÉTICA
+-- 🧠 MOTOR BALÍSTICO RE-CALIBRADO (LINEAL Y EXACTO)
 -- ============================================================================
 
 local function hasKnifeInInventory()
@@ -125,7 +125,7 @@ local function getClosestTargetToFOV()
     return closestPlayer
 end
 
--- Algoritmo Balístico v6.0 Adaptativo por Velocidad y Rango Continuo
+-- Algoritmo Balístico v6.5 (Ecuación Lineal Corregida)
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
     local hrp = targetChar:FindFirstChild("HumanoidRootPart")
@@ -138,7 +138,7 @@ local function getAdvancedKnifePrediction(targetChar)
     local targetPosition = hrp.Position
     local distance = (targetPosition - localHrp.Position).Magnitude
     
-    -- Compensación de avatares pequeños
+    -- Compensación de avatares pequeños (Filtro Enano)
     local extentsY = targetChar:GetExtentsSize().Y
     local scaleFactor = 1.0
     if humanoid:FindFirstChild("BodyHeightScale") then
@@ -150,7 +150,7 @@ local function getAdvancedKnifePrediction(targetChar)
         targetPosition = targetPosition - Vector3.new(0, heightDeficit, 0)
     end
 
-    -- Extraer el vector de velocidad suavizado de la memoria síncrona
+    -- Extraer el vector de velocidad suavizado
     local smoothVelocity = Vector3.new(0, 0, 0)
     if targetPlayer and playerFysics[targetPlayer] then
         smoothVelocity = playerFysics[targetPlayer].SmoothedVelocity
@@ -158,7 +158,7 @@ local function getAdvancedKnifePrediction(targetChar)
 
     if smoothVelocity.Magnitude < 0.15 then return targetPosition, targetPosition end
 
-    -- Cálculo dinámico del tiempo de vuelo basado en ping y velocidad del proyectil (85 studs/s)
+    -- Cálculo de latencia y tiempo de viaje (Cuchillo MM2 ~85 studs/s)
     local rawPing = 0.06
     if Stats and Stats:FindFirstChild("Network") and Stats.Network:FindFirstChild("ServerToClientPing") then
         rawPing = Stats.Network.ServerToClientPing:GetValue() / 1000
@@ -167,55 +167,52 @@ local function getAdvancedKnifePrediction(targetChar)
     local travelTime = (distance / 85) + ping
 
     -- ========================================================================
-    -- 📊 MOTOR ADAPTATIVO POR VELOCIDAD EXACTA Y MULTI-RANGO FLUIDO
+    -- 📊 CORRECCIÓN MATEMÁTICA: PREDICCIÓN LINEAL EQUILIBRADA
     -- ========================================================================
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
     local exactSpeed = horizontalVelocity.Magnitude
 
-    -- 🛡️ Escudo Anti-Exploits Integrado (Capado a velocidad máxima controlable)
-    if exactSpeed > 45 then
-        horizontalVelocity = horizontalVelocity.Unit * 45
-        exactSpeed = 45
-    elseif exactSpeed < 5 then
-        horizontalVelocity = horizontalVelocity * (exactSpeed / 5)
+    -- Escudo Anti-Exploits (Speedhack/Fly) capado firmemente
+    if exactSpeed > 42 then
+        horizontalVelocity = horizontalVelocity.Unit * 42
+    elseif exactSpeed < 4 then
+        horizontalVelocity = horizontalVelocity * (exactSpeed / 4)
     end
 
-    -- 🔥 MEJORA DE CORTA DISTANCIA (Anti-Ankle Breakers)
+    -- Boost moderado de corta distancia (Para evitar que te esquiven girando cerca)
     local shortRangeBoost = 1.0
-    if distance < 22 then
-        -- Incrementa la fuerza predictiva de cerca un 25% para asegurar el tiro en giros cerrados
-        shortRangeBoost = 1.25 
+    if distance < 20 then
+        shortRangeBoost = 1.15
     end
 
-    -- Curva matemática continua en base a la Velocidad Exacta y la Distancia del objetivo
-    -- Elimina saltos bruscos entre rangos cerca/medio/lejos
-    local dynamicScale = (1.0 + (distance * 0.018)) * (exactSpeed / 16) * shortRangeBoost
+    -- NUEVA ESCALA ADAPTATIVA SUAVE (Eliminado el multiplicador cuadrático de velocidad)
+    local dynamicScale = (1.0 + (distance * 0.008)) * shortRangeBoost
 
-    -- Límite elástico adaptativo continuo (Escala dinámicamente, tope blindado en 17.5 studs)
-    local maxElasticCap = math.clamp(distance * 0.42, 4.0, 17.5)
+    -- Tope elástico máximo blindado (Evita por completo que exagere a larga distancia)
+    local maxElasticCap = math.clamp(distance * 0.38, 3.5, 13.5)
 
-    -- Aplicación final del desplazamiento horizontal adaptativo
-    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 10) * travelTime * dynamicScale
+    -- Aplicación del desplazamiento horizontal (Ajustado el multiplicador base a un valor óptimo)
+    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 6.8) * travelTime * dynamicScale
 
     if horizontalOffset.Magnitude > maxElasticCap then
         horizontalOffset = horizontalOffset.Unit * maxElasticCap
     end
 
-    -- Control balístico vertical adaptativo (Saltos y caídas)
+    -- Control balístico vertical (Saltos y caídas normales)
     local verticalOffset = Vector3.new(0, 0, 0)
     if humanoid.FloorMaterial == Enum.Material.Air or math.abs(smoothVelocity.Y) > 0.4 then
         local verticalVelocity = math.clamp(smoothVelocity.Y, -16, 16)
-        if verticalVelocity > 25 then verticalVelocity = 25 end
+        if verticalVelocity > 22 then verticalVelocity = 22 end
         
-        local verticalDistanceScale = 1 / (1 + (distance * 0.022)) 
+        local verticalDistanceScale = 1 / (1 + (distance * 0.020)) 
         
         if verticalVelocity < -1 then
-            verticalVelocity = verticalVelocity * 0.45
+            verticalVelocity = verticalVelocity * 0.40
         else
-            verticalVelocity = verticalVelocity * 0.75
+            verticalVelocity = verticalVelocity * 0.70
         end
         
-        verticalOffset = Vector3.new(0, verticalVelocity * (MurderConfig.VerticalPred * 6) * travelTime * verticalDistanceScale, 0)
+        verticalOffset = Vector3.new(0, verticalVelocity * (MurderConfig.VerticalPred * 5.5) * travelTime * verticalDistanceScale, 0)
     end
 
     return targetPosition, (targetPosition + horizontalOffset + verticalOffset)
@@ -263,7 +260,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================================
--- 🔄 BUCLE RENDERSTEPPED: HILO ELÁSTICO DE INTENSIDAD PREMIUM
+-- 🔄 BUCLE RENDERSTEPPED: EFECTO HILO ELÁSTICO PREMIUM PERFECCIONADO
 -- ============================================================================
 RunService.RenderStepped:Connect(function()
     local hasKnife = hasKnifeInInventory()
@@ -286,13 +283,13 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Visible = false
     end
 
-    -- 2. Renderizado de la Mira Premium y el Hilo de Arrastre
+    -- 2. Renderizado de la Mira Calibrada y el Hilo de Arrastre
     local activeTarget = getClosestTargetToFOV()
     if MurderConfig.ShowPredCircle and allowRender and activeTarget and activeTarget.Character then
         local basePos, rawPredictedPos = getAdvancedKnifePrediction(activeTarget.Character)
         
         if basePos and rawPredictedPos then
-            -- Interpolación fluida de respuesta rápida
+            -- Interpolación suave
             lastActualPosition = lastActualPosition:Lerp(basePos, 0.28)
             lastVisualPosition = lastVisualPosition:Lerp(rawPredictedPos, 0.28)
             
@@ -309,7 +306,7 @@ RunService.RenderStepped:Connect(function()
                 PredLine.From = drawBase
                 PredLine.To = drawPred
                 
-                -- El hilo desaparece si están en el mismo punto exacto
+                -- Ocultar el hilo elástico si el rival se detiene por completo
                 if (drawBase - drawPred).Magnitude < 1.5 then
                     PredLine.Visible = false
                 else
