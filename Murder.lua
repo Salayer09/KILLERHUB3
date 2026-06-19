@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V5.5 (PULSE THREAD & COMPACT RING)
+-- 👻 KILLER HUB | MURDER SUITE V6.0 (KINETIC ADAPT ENGINE & RANGE BALANCER)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/refs/heads/main/Sheriff.lua"))()
 
@@ -33,7 +33,7 @@ local Camera = workspace.CurrentCamera
 -- Tablas de memoria global para suavizado físico y renderizado sin jitter
 local playerFysics = {}
 local lastVisualPosition = Vector3.new(0, 0, 0)
-local lastActualPosition = Vector3.new(0, 0, 0) -- Memoria para el punto blanco suave
+local lastActualPosition = Vector3.new(0, 0, 0)
 
 -- Configuración para el Raycast del Wall Check
 local raycastParams = RaycastParams.new()
@@ -48,15 +48,15 @@ FOVCircle.NumSides = 64
 FOVCircle.Filled = false
 FOVCircle.Visible = false 
 
--- Círculo Exterior Hueco Más Pequeño (Rojo, compacto y fino)
+-- Círculo Exterior Hueco Compacto Elegante
 local PredRingOuter = Drawing.new("Circle")
-PredRingOuter.Radius = 6.0 -- Reducido para mayor elegancia visual
+PredRingOuter.Radius = 6.0
 PredRingOuter.Thickness = 1.2
 PredRingOuter.Filled = false
 PredRingOuter.Color = Color3.fromRGB(255, 35, 35)
 PredRingOuter.Visible = false
 
--- Centro de Enfoque Blanco Ampliado (Punto de origen del jugador)
+-- Centro de Enfoque Blanco Ampliado
 local PredDotCenter = Drawing.new("Circle")
 PredDotCenter.Radius = 2.5
 PredDotCenter.Thickness = 1
@@ -64,15 +64,15 @@ PredDotCenter.Filled = true
 PredDotCenter.Color = Color3.fromRGB(255, 255, 255)
 PredDotCenter.Visible = false
 
--- El Hilo Morado de Inercia (Conecta el origen con la predicción)
+-- El Hilo Morado de Inercia Elástica
 local PredLine = Drawing.new("Line")
 PredLine.Thickness = 1.0
-PredLine.Color = Color3.fromRGB(185, 0, 255) -- Morado Neón Premium
-PredLine.Transparency = 0.65 -- Translúcido para que no sature la pantalla
+PredLine.Color = Color3.fromRGB(185, 0, 255)
+PredLine.Transparency = 0.65
 PredLine.Visible = false
 
 -- ============================================================================
--- 🧠 MOTOR BALÍSTICO DE FLUIDEZ INTERPOLADA (ANTI-JITTER & ANTI-HACK)
+-- 🧠 MOTOR BALÍSTICO DE FÚSICA ADAPTATIVA KINÉTICA
 -- ============================================================================
 
 local function hasKnifeInInventory()
@@ -125,7 +125,7 @@ local function getClosestTargetToFOV()
     return closestPlayer
 end
 
--- Motor de predicción con salida de datos limpios
+-- Algoritmo Balístico v6.0 Adaptativo por Velocidad y Rango Continuo
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
     local hrp = targetChar:FindFirstChild("HumanoidRootPart")
@@ -138,7 +138,7 @@ local function getAdvancedKnifePrediction(targetChar)
     local targetPosition = hrp.Position
     local distance = (targetPosition - localHrp.Position).Magnitude
     
-    -- FILTRO DE COMPENSACIÓN ENANA (ANTI-MINI AVATARS)
+    -- Compensación de avatares pequeños
     local extentsY = targetChar:GetExtentsSize().Y
     local scaleFactor = 1.0
     if humanoid:FindFirstChild("BodyHeightScale") then
@@ -150,7 +150,7 @@ local function getAdvancedKnifePrediction(targetChar)
         targetPosition = targetPosition - Vector3.new(0, heightDeficit, 0)
     end
 
-    -- Extraemos la velocidad filtrada
+    -- Extraer el vector de velocidad suavizado de la memoria síncrona
     local smoothVelocity = Vector3.new(0, 0, 0)
     if targetPlayer and playerFysics[targetPlayer] then
         smoothVelocity = playerFysics[targetPlayer].SmoothedVelocity
@@ -158,49 +158,56 @@ local function getAdvancedKnifePrediction(targetChar)
 
     if smoothVelocity.Magnitude < 0.15 then return targetPosition, targetPosition end
 
+    -- Cálculo dinámico del tiempo de vuelo basado en ping y velocidad del proyectil (85 studs/s)
     local rawPing = 0.06
     if Stats and Stats:FindFirstChild("Network") and Stats.Network:FindFirstChild("ServerToClientPing") then
         rawPing = Stats.Network.ServerToClientPing:GetValue() / 1000
     end
     local ping = math.clamp(rawPing, 0.01, 0.25)
-
     local travelTime = (distance / 85) + ping
 
-    -- ESCALADO ADAPTATIVO CONTROLADO
-    local horizontalDistanceScale = 1.0
-    local maxElasticCap = 10.0
-
-    if distance < 30 then
-        horizontalDistanceScale = math.clamp(distance / 30, 0.2, 1.0)
-        maxElasticCap = math.clamp(distance * 0.35, 3.0, 10.0)
-    else
-        horizontalDistanceScale = 1.0 + ((distance - 30) * 0.015)
-        maxElasticCap = math.clamp(distance * 0.38, 10.0, 16.5)
-    end
-
-    -- ESCUDO DE INTERCEPCIÓN (ANTI-SPEEDHACK)
+    -- ========================================================================
+    -- 📊 MOTOR ADAPTATIVO POR VELOCIDAD EXACTA Y MULTI-RANGO FLUIDO
+    -- ========================================================================
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
-    local walkSpeedCap = horizontalVelocity.Magnitude
-    
-    if walkSpeedCap > 42 then
-        horizontalVelocity = horizontalVelocity.Unit * 42
-    elseif walkSpeedCap < 6 then
-        horizontalVelocity = horizontalVelocity * (walkSpeedCap / 6)
+    local exactSpeed = horizontalVelocity.Magnitude
+
+    -- 🛡️ Escudo Anti-Exploits Integrado (Capado a velocidad máxima controlable)
+    if exactSpeed > 45 then
+        horizontalVelocity = horizontalVelocity.Unit * 45
+        exactSpeed = 45
+    elseif exactSpeed < 5 then
+        horizontalVelocity = horizontalVelocity * (exactSpeed / 5)
     end
 
-    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 10) * travelTime * horizontalDistanceScale
+    -- 🔥 MEJORA DE CORTA DISTANCIA (Anti-Ankle Breakers)
+    local shortRangeBoost = 1.0
+    if distance < 22 then
+        -- Incrementa la fuerza predictiva de cerca un 25% para asegurar el tiro en giros cerrados
+        shortRangeBoost = 1.25 
+    end
+
+    -- Curva matemática continua en base a la Velocidad Exacta y la Distancia del objetivo
+    -- Elimina saltos bruscos entre rangos cerca/medio/lejos
+    local dynamicScale = (1.0 + (distance * 0.018)) * (exactSpeed / 16) * shortRangeBoost
+
+    -- Límite elástico adaptativo continuo (Escala dinámicamente, tope blindado en 17.5 studs)
+    local maxElasticCap = math.clamp(distance * 0.42, 4.0, 17.5)
+
+    -- Aplicación final del desplazamiento horizontal adaptativo
+    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 10) * travelTime * dynamicScale
 
     if horizontalOffset.Magnitude > maxElasticCap then
         horizontalOffset = horizontalOffset.Unit * maxElasticCap
     end
 
-    -- CONTROL VERTICAL ANTI-CIELO
+    -- Control balístico vertical adaptativo (Saltos y caídas)
     local verticalOffset = Vector3.new(0, 0, 0)
     if humanoid.FloorMaterial == Enum.Material.Air or math.abs(smoothVelocity.Y) > 0.4 then
         local verticalVelocity = math.clamp(smoothVelocity.Y, -16, 16)
         if verticalVelocity > 25 then verticalVelocity = 25 end
         
-        local verticalDistanceScale = 1 / (1 + (distance * 0.025)) 
+        local verticalDistanceScale = 1 / (1 + (distance * 0.022)) 
         
         if verticalVelocity < -1 then
             verticalVelocity = verticalVelocity * 0.45
@@ -285,7 +292,7 @@ RunService.RenderStepped:Connect(function()
         local basePos, rawPredictedPos = getAdvancedKnifePrediction(activeTarget.Character)
         
         if basePos and rawPredictedPos then
-            -- Suavizado independiente para que el hilo se mueva como gelatina/resorte premium
+            -- Interpolación fluida de respuesta rápida
             lastActualPosition = lastActualPosition:Lerp(basePos, 0.28)
             lastVisualPosition = lastVisualPosition:Lerp(rawPredictedPos, 0.28)
             
@@ -296,15 +303,13 @@ RunService.RenderStepped:Connect(function()
                 local drawBase = Vector2.new(screenPosBase.X, screenPosBase.Y)
                 local drawPred = Vector2.new(screenPosPred.X, screenPosPred.Y)
                 
-                -- Posiciones del Punto Blanco (Base) y Aro Rojo (Predicción)
                 PredDotCenter.Position = drawBase
                 PredRingOuter.Position = drawPred
                 
-                -- Configuración del hilo conector morado
                 PredLine.From = drawBase
                 PredLine.To = drawPred
                 
-                -- Si están en la misma posición (enemigo quieto), ocultamos el hilo para máxima limpieza
+                -- El hilo desaparece si están en el mismo punto exacto
                 if (drawBase - drawPred).Magnitude < 1.5 then
                     PredLine.Visible = false
                 else
