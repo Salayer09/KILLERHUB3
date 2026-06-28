@@ -227,16 +227,30 @@ local function getAdvancedKnifePrediction(targetChar)
         horizontalOffset = horizontalOffset.Unit * maxElasticCap
     end
 
+    -- ============================================================================
+    -- 🛠️ CÁLCULO VERTICAL MEJORADO (CON DETECCIÓN DE RAMPAS/ESCALERAS)
+    -- ============================================================================
     local verticalOffset = Vector3.new(0, 0, 0)
-    if humanoid.FloorMaterial == Enum.Material.Air or math.abs(smoothVelocity.Y) > 0.4 then
-        local verticalVelocity = math.clamp(smoothVelocity.Y, -16, 16)
-        if verticalVelocity > 22 then verticalVelocity = 22 end
-        local verticalDistanceScale = 1 / (1 + (distance * 0.020)) 
+    local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
+    local absYVelocity = math.abs(smoothVelocity.Y)
+
+    -- Reducido a 0.15 para captar las inclinaciones leves y progresivas de rampas
+    if isAir or absYVelocity > 0.15 then
+        local verticalVelocity = math.clamp(smoothVelocity.Y, -16, 22)
+        local verticalDistanceScale = 1 / (1 + (distance * 0.018))
         
-        if verticalVelocity < -1 then
-            verticalVelocity = verticalVelocity * 0.40
+        if isAir then
+            -- Ajuste estándar en el aire (Saltos o caídas)
+            if verticalVelocity < -1 then
+                verticalVelocity = verticalVelocity * 0.40
+            else
+                verticalVelocity = verticalVelocity * 0.70
+            end
         else
-            verticalVelocity = verticalVelocity * 0.70
+            -- Compensación especial para Rampas, Escaleras y Pendientes
+            if verticalVelocity > 0.15 then
+                verticalVelocity = verticalVelocity * 1.45 -- Elevación dinámica predictiva
+            end
         end
         
         verticalOffset = Vector3.new(0, verticalVelocity * (MurderConfig.VerticalPred * 5.5) * travelTime * verticalDistanceScale, 0)
