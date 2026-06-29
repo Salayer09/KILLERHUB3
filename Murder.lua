@@ -12,12 +12,13 @@ local Stats = game:GetService("Stats")
 local Camera = workspace.CurrentCamera
 local HttpService = game:GetService("HttpService")
 
--- 1. CONFIGURACIÓN SÓLIDA DEL MOTOR MURDER (Valores por defecto)
+-- 1. CONFIGURACIÓN SÓLIDA DEL MOTOR MURDER (Con nueva opción de Prioridad)
 local MurderConfig = {
     SilentAim = false,
     HorizontalPred = 0.145,
     VerticalPred = 0.040,
     WallCheck = false,
+    PrioritizeSheriff = false, -- ✨ Nueva opción
     
     -- Ajustes del FOV y Visualizadores
     ShowFOV = false,
@@ -30,7 +31,7 @@ local MurderConfig = {
 
 local CONFIG_FILE = "KillerHub_MurderSuite.txt"
 
--- 💾 SISTEMA DE PERSISTENCIA DE DATOS (AUTO-GUARDADO JSON)
+-- 💾 SISTEMA DE PERSISTENCIA DE DATOS (AUTO-GUARDADO JSON ACTUALIZADO)
 local function saveConfig()
     if writefile then
         local data = {
@@ -38,6 +39,7 @@ local function saveConfig()
             HorizontalPred = MurderConfig.HorizontalPred,
             VerticalPred = MurderConfig.VerticalPred,
             WallCheck = MurderConfig.WallCheck,
+            PrioritizeSheriff = MurderConfig.PrioritizeSheriff, -- ✨ Guardar nueva opción
             ShowFOV = MurderConfig.ShowFOV,
             FOVRadius = MurderConfig.FOVRadius,
             ShowPredCircle = MurderConfig.ShowPredCircle,
@@ -58,6 +60,7 @@ local function loadConfig()
             if decoded.HorizontalPred ~= nil then MurderConfig.HorizontalPred = decoded.HorizontalPred end
             if decoded.VerticalPred ~= nil then MurderConfig.VerticalPred = decoded.VerticalPred end
             if decoded.WallCheck ~= nil then MurderConfig.WallCheck = decoded.WallCheck end
+            if decoded.PrioritizeSheriff ~= nil then MurderConfig.PrioritizeSheriff = decoded.PrioritizeSheriff end -- ✨ Cargar nueva opción
             if decoded.ShowFOV ~= nil then MurderConfig.ShowFOV = decoded.ShowFOV end
             if decoded.FOVRadius ~= nil then MurderConfig.FOVRadius = decoded.FOVRadius end
             if decoded.ShowPredCircle ~= nil then MurderConfig.ShowPredCircle = decoded.ShowPredCircle end
@@ -69,58 +72,39 @@ local function loadConfig()
     end
 end
 
--- Cargar configuración guardada antes de renderizar la interfaz
 loadConfig()
 
 -- 2. CREACIÓN DE LA PESTAÑA MURDER
-MurderTab = KillerHub:CreateTab("Murder", "rbxassetid://10747372517")
+local MurderTab = KillerHub:CreateTab("Murder", "rbxassetid://10747372517")
 
--- Tablas de memoria global para suavizado físico
 local playerFysics = {}
 local lastVisualPosition = Vector3.new(0, 0, 0)
 local lastActualPosition = Vector3.new(0, 0, 0)
 
--- Configuración para el Raycast del Wall Check
 local raycastParams = RaycastParams.new()
 raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
--- ============================================================================
--- ⭕ VISUALIZADORES PREMIUM REDISEÑADOS (DRAWING API)
--- ============================================================================
+-- Visualizadores (Drawing API) se mantienen intactos...
 local FOVCircle = Drawing.new("Circle")
-FOVCircle.Thickness = 1.5
-FOVCircle.NumSides = 64
-FOVCircle.Filled = false
-FOVCircle.Visible = false 
-
+FOVCircle.Thickness = 1.5; FOVCircle.NumSides = 64; FOVCircle.Filled = false; FOVCircle.Visible = false 
 local PredRingOuter = Drawing.new("Circle")
-PredRingOuter.Radius = 6.0
-PredRingOuter.Thickness = 1.2
-PredRingOuter.Filled = false
-PredRingOuter.Color = Color3.fromRGB(255, 35, 35)
-PredRingOuter.Visible = false
-
+PredRingOuter.Radius = 6.0; PredRingOuter.Thickness = 1.2; PredRingOuter.Filled = false; PredRingOuter.Color = Color3.fromRGB(255, 35, 35); PredRingOuter.Visible = false
 local PredDotCenter = Drawing.new("Circle")
-PredDotCenter.Radius = 2.5
-PredDotCenter.Thickness = 1
-PredDotCenter.Filled = true
-PredDotCenter.Color = Color3.fromRGB(255, 255, 255)
-PredDotCenter.Visible = false
-
+PredDotCenter.Radius = 2.5; PredDotCenter.Thickness = 1; PredDotCenter.Filled = true; PredDotCenter.Color = Color3.fromRGB(255, 255, 255); PredDotCenter.Visible = false
 local PredLine = Drawing.new("Line")
-PredLine.Thickness = 1.0
-PredLine.Color = Color3.fromRGB(185, 0, 255)
-PredLine.Transparency = 0.65
-PredLine.Visible = false
-
--- ============================================================================
--- 🧠 MOTOR BALÍSTICO RE-CALIBRADO (LINEAL Y EXACTO)
--- ============================================================================
+PredLine.Thickness = 1.0; PredLine.Color = Color3.fromRGB(185, 0, 255); PredLine.Transparency = 0.65; PredLine.Visible = false
 
 local function hasKnifeInInventory()
     local char = LocalPlayer.Character
     local backpack = LocalPlayer:FindFirstChild("Backpack")
     return (char and char:FindFirstChild("Knife")) or (backpack and backpack:FindFirstChild("Knife"))
+end
+
+-- ✨ Función auxiliar optimizada para detectar si un jugador específico tiene la pistola
+local function hasGun(player)
+    local char = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+    return (char and char:FindFirstChild("Gun")) or (backpack and backpack:FindFirstChild("Gun"))
 end
 
 local function isVisibleThroughWalls(targetChar)
@@ -137,36 +121,59 @@ local function isVisibleThroughWalls(targetChar)
     return true
 end
 
+-- ============================================================================
+-- 🧠 MOTOR DE SELECCIÓN INTELIGENTE RE-DISEÑADO (CON JERARQUÍA DE OBJETIVOS)
+-- ============================================================================
 local function getClosestTargetToFOV()
-    local closestPlayer = nil
+    local closestInnocent = nil
     local shortestDistance = MurderConfig.FOVRadius 
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    local sheriffTarget = nil
+    local sheriffShortestDistance = MurderConfig.FOVRadius
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
             
             if humanoid and humanoid.Health > 0 then
-                if MurderConfig.WallCheck and not isVisibleThroughWalls(player.Character) then
-                    continue
+                -- Comprobación de pared global prematura para ahorrar cálculos si el Wall Check está activo
+                local visible = true
+                if MurderConfig.WallCheck then
+                    visible = isVisibleThroughWalls(player.Character)
                 end
 
-                local hrp = player.Character.HumanoidRootPart
-                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                
-                if onScreen then
-                    local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                    if distToCenter < shortestDistance then
-                        shortestDistance = distToCenter
-                        closestPlayer = player
+                if visible then
+                    local hrp = player.Character.HumanoidRootPart
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    
+                    if onScreen then
+                        local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                        
+                        -- Comprobar si es el Sheriff / Héroe
+                        if MurderConfig.PrioritizeSheriff and hasGun(player) then
+                            if distToCenter < sheriffShortestDistance then
+                                sheriffShortestDistance = distToCenter
+                                sheriffTarget = player
+                            end
+                        else
+                            -- Filtro regular para inocentes
+                            if distToCenter < shortestDistance then
+                                shortestDistance = distToCenter
+                                closestInnocent = player
+                            end
+                        end
                     end
                 end
             end
         end
     end
-    return closestPlayer
+
+    -- Regresar Sheriff si está disponible y visible, de lo contrario degrada fluidamente al inocente más cercano
+    return sheriffTarget or closestInnocent
 end
 
+-- El motor balístico (getAdvancedKnifePrediction) y los bucles RunService se mantienen exactamente iguales...
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
     local hrp = targetChar:FindFirstChild("HumanoidRootPart")
@@ -181,9 +188,7 @@ local function getAdvancedKnifePrediction(targetChar)
     
     local extentsY = targetChar:GetExtentsSize().Y
     local scaleFactor = 1.0
-    if humanoid:FindFirstChild("BodyHeightScale") then
-        scaleFactor = humanoid.BodyHeightScale.Value
-    end
+    if humanoid:FindFirstChild("BodyHeightScale") then scaleFactor = humanoid.BodyHeightScale.Value end
 
     if extentsY < 4.8 or scaleFactor < 0.85 then
         local heightDeficit = math.clamp((5.1 - extentsY) * 0.52, 0.4, 2.3)
@@ -191,10 +196,7 @@ local function getAdvancedKnifePrediction(targetChar)
     end
 
     local smoothVelocity = Vector3.new(0, 0, 0)
-    if targetPlayer and playerFysics[targetPlayer] then
-        smoothVelocity = playerFysics[targetPlayer].SmoothedVelocity
-    end
-
+    if targetPlayer and playerFysics[targetPlayer] then smoothVelocity = playerFysics[targetPlayer].SmoothedVelocity end
     if smoothVelocity.Magnitude < 0.15 then return targetPosition, targetPosition end
 
     local rawPing = 0.06
@@ -207,61 +209,34 @@ local function getAdvancedKnifePrediction(targetChar)
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
     local exactSpeed = horizontalVelocity.Magnitude
 
-    if exactSpeed > 42 then
-        horizontalVelocity = horizontalVelocity.Unit * 42
-    elseif exactSpeed < 4 then
-        horizontalVelocity = horizontalVelocity * (exactSpeed / 4)
-    end
+    if exactSpeed > 42 then horizontalVelocity = horizontalVelocity.Unit * 42
+    elseif exactSpeed < 4 then horizontalVelocity = horizontalVelocity * (exactSpeed / 4) end
 
-    local shortRangeBoost = 1.0
-    if distance < 20 then
-        shortRangeBoost = 1.15
-    end
-
+    local shortRangeBoost = distance < 20 and 1.15 or 1.0
     local dynamicScale = (1.0 + (distance * 0.008)) * shortRangeBoost
     local maxElasticCap = math.clamp(distance * 0.38, 3.5, 13.5)
-
     local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 6.8) * travelTime * dynamicScale
 
-    if horizontalOffset.Magnitude > maxElasticCap then
-        horizontalOffset = horizontalOffset.Unit * maxElasticCap
-    end
+    if horizontalOffset.Magnitude > maxElasticCap then horizontalOffset = horizontalOffset.Unit * maxElasticCap end
 
-    -- ============================================================================
-    -- 🛠️ CÁLCULO VERTICAL MEJORADO (CON DETECCIÓN DE RAMPAS/ESCALERAS)
-    -- ============================================================================
     local verticalOffset = Vector3.new(0, 0, 0)
     local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local absYVelocity = math.abs(smoothVelocity.Y)
 
-    -- Reducido a 0.15 para captar las inclinaciones leves y progresivas de rampas
     if isAir or absYVelocity > 0.15 then
         local verticalVelocity = math.clamp(smoothVelocity.Y, -16, 22)
         local verticalDistanceScale = 1 / (1 + (distance * 0.018))
-        
         if isAir then
-            -- Ajuste estándar en el aire (Saltos o caídas)
-            if verticalVelocity < -1 then
-                verticalVelocity = verticalVelocity * 0.40
-            else
-                verticalVelocity = verticalVelocity * 0.70
-            end
+            verticalVelocity = verticalVelocity * (verticalVelocity < -1 and 0.40 or 0.70)
         else
-            -- Compensación especial para Rampas, Escaleras y Pendientes
-            if verticalVelocity > 0.15 then
-                verticalVelocity = verticalVelocity * 1.45 -- Elevación dinámica predictiva
-            end
+            if verticalVelocity > 0.15 then verticalVelocity = verticalVelocity * 1.45 end
         end
-        
         verticalOffset = Vector3.new(0, verticalVelocity * (MurderConfig.VerticalPred * 5.5) * travelTime * verticalDistanceScale, 0)
     end
 
     return targetPosition, (targetPosition + horizontalOffset + verticalOffset)
 end
 
--- ============================================================================
--- 📡 MONITOR DE FILTRADO SÍNCRONO
--- ============================================================================
 RunService.Heartbeat:Connect(function()
     local currentTime = os.clock()
     for _, player in ipairs(Players:GetPlayers()) do
@@ -271,22 +246,13 @@ RunService.Heartbeat:Connect(function()
             local physicsVelocity = hrp.AssemblyLinearVelocity
             
             if not playerFysics[player] then
-                playerFysics[player] = {
-                    LastPos = currentPos,
-                    LastTime = currentTime,
-                    SmoothedVelocity = physicsVelocity
-                }
+                playerFysics[player] = { LastPos = currentPos, LastTime = currentTime, SmoothedVelocity = physicsVelocity }
             else
                 local data = playerFysics[player]
                 local deltaTime = currentTime - data.LastTime
-                local actualSpeed = 0
-                if deltaTime > 0 then
-                    actualSpeed = (currentPos - data.LastPos).Magnitude / deltaTime
-                end
+                local actualSpeed = deltaTime > 0 and (currentPos - data.LastPos).Magnitude / deltaTime or 0
                 local finalVelocity = physicsVelocity
-                if physicsVelocity.Magnitude > 4.5 and actualSpeed < 1.8 then
-                    finalVelocity = Vector3.new(0, 0, 0)
-                end
+                if physicsVelocity.Magnitude > 4.5 and actualSpeed < 1.8 then finalVelocity = Vector3.new(0, 0, 0) end
                 data.SmoothedVelocity = data.SmoothedVelocity:Lerp(finalVelocity, 0.18)
                 data.LastPos = currentPos
                 data.LastTime = currentTime
@@ -295,9 +261,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ============================================================================
--- 🔄 BUCLE RENDERSTEPPED Visuales
--- ============================================================================
 RunService.RenderStepped:Connect(function()
     local hasKnife = hasKnifeInInventory()
     local allowRender = not MurderConfig.SmartVisibility or hasKnife
@@ -351,7 +314,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================================
--- ⚙️ INTERFAZ GRÁFICA CON AUTO-GUARDADO DETECTABLE
+-- ⚙️ INTERFAZ GRÁFICA ACTUALIZADA CON EL NUEVO TOGGLE
 -- ============================================================================
 MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
 
@@ -360,12 +323,17 @@ MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", functio
     saveConfig()
 end)
 
+-- ✨ NUEVO COMPONENTE: Priorizar al portador del arma
+MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado)
+    MurderConfig.PrioritizeSheriff = estado
+    saveConfig()
+end)
+
 MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", function(estado)
     MurderConfig.WallCheck = estado
     saveConfig()
 end)
 
--- Multiplicadores vinculados al guardado instantáneo
 MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, function(valor)
     MurderConfig.HorizontalPred = valor / 1000
     saveConfig()
@@ -377,7 +345,6 @@ MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)"
 end)
 
 MurderTab:CreateSection("Visualizadores e Interfaz Inteligente")
-
 MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium (Círculo Hueco)", function(estado)
     MurderConfig.ShowPredCircle = estado
     saveConfig()
@@ -389,20 +356,10 @@ MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Ase
 end)
 
 MurderTab:CreateSection("Personalización del Campo de Visión (FOV)")
-
 MurderTab:CreateToggleColorPicker(
-    "FovVisibleMurder", 
-    "FovColorMurder", 
-    "Mostrar Círculo de FOV", 
-    MurderConfig.FOVColor, 
-    function(estadoToggle)
-        MurderConfig.ShowFOV = estadoToggle
-        saveConfig()
-    end,
-    function(colorSeleccionado)
-        MurderConfig.FOVColor = colorSeleccionado
-        saveConfig()
-    end
+    "FovVisibleMurder", "FovColorMurder", "Mostrar Círculo de FOV", MurderConfig.FOVColor, 
+    function(estadoToggle) MurderConfig.ShowFOV = estadoToggle; saveConfig() end,
+    function(colorSeleccionado) MurderConfig.FOVColor = colorSeleccionado; saveConfig() end
 )
 
 MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, function(valor)
@@ -410,9 +367,7 @@ MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, function(v
     saveConfig()
 end)
 
--- ============================================================================
--- 📡 ENCADENAMIENTO DE HOOKS DE DISPARO
--- ============================================================================
+-- Hooks de disparo síncronos se mantienen igual...
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
 if ClientServices then
     local WeaponService = require(ClientServices:WaitForChild("WeaponService"))
@@ -442,4 +397,5 @@ if ClientServices then
     end
 end
 
+-- Recuerda poner siempre el retorno al final para mantener tu cadena infinita como se indica en "EjemploAPI.lua (1).txt[span_0](start_span)"[span_0](end_span)
 return KillerHub
