@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V6.8 (EVENT-DRIVEN SHERIFF TRACKER)
+--  ghost KILLER HUB | MURDER SUITE V6.9 (ANTI-JUKES & SPEED CALIBRATED)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
@@ -130,27 +130,25 @@ local CurrentSheriff = nil
 local lastSheriffScan = 0
 
 local function updateSheriffTarget()
-    -- Si ya hay un Sheriff fijado, verificamos de forma ultra rápida si sigue vivo y con el arma
     if CurrentSheriff and CurrentSheriff.Parent == Players then
         local char = CurrentSheriff.Character
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if hum and hum.Health > 0 and checkPlayerHasGun(CurrentSheriff) then
-            return -- El Sheriff actual sigue siendo válido, no busques más.
+            return 
         end
     end
 
-    -- Si no hay Sheriff o el que estaba murió/tiró el arma, hacemos un escaneo pasivo controlado (cada 0.5 seg)
     local now = os.clock()
     if now - lastSheriffScan > 0.5 then
         lastSheriffScan = now
-        CurrentSheriff = nil -- Limpiar datos anteriores
+        CurrentSheriff = nil
         
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and checkPlayerHasGun(player) then
                 local char = player.Character
                 local hum = char and char:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
-                    CurrentSheriff = player -- ✨ Nuevo Sheriff memorizado
+                    CurrentSheriff = player
                     break
                 end
             end
@@ -166,7 +164,6 @@ local function getClosestTargetToFOV()
         return nil 
     end
 
-    -- Actualizar el estado del Sheriff en memoria
     if MurderConfig.PrioritizeSheriff then
         updateSheriffTarget()
     else
@@ -175,7 +172,6 @@ local function getClosestTargetToFOV()
 
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
-    -- 🥇 PASO 1: Si hay un Sheriff válido en memoria, intentamos apuntarle directamente
     if CurrentSheriff and CurrentSheriff.Character then
         local hrp = CurrentSheriff.Character:FindFirstChild("HumanoidRootPart")
         if hrp then
@@ -183,22 +179,18 @@ local function getClosestTargetToFOV()
             if onScreen then
                 local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
                 if distToCenter < MurderConfig.FOVRadius then
-                    -- Si pasa el Wall Check (o está desactivado), es el objetivo absoluto
                     if not MurderConfig.WallCheck or isVisibleThroughWalls(CurrentSheriff.Character) then
                         return CurrentSheriff
                     end
-                    -- Si NO pasa el Wall Check por estar escondido, el código continúa hacia los inocentes...
                 end
             end
         end
     end
 
-    -- 🥈 PASO 2: Si no hay Sheriff, si está muerto, o si se escondió detrás de una pared, buscamos al Inocente más cercano
     local closestInnocent = nil
     local shortestDistance = MurderConfig.FOVRadius 
 
     for _, player in ipairs(Players:GetPlayers()) do
-        -- Ignorar al jugador local y al Sheriff actual (si ya fue procesado arriba)
         if player ~= LocalPlayer and player ~= CurrentSheriff and player.Character then
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
             local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
@@ -224,7 +216,9 @@ local function getClosestTargetToFOV()
     return closestInnocent
 end
 
--- (El motor predictivo balístico se mantiene idéntico...)
+-- ============================================================================
+-- 🧠 MOTOR BALÍSTICO AVANZADO Calibrado (ANTI-FINTAS)
+-- ============================================================================
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
     local hrp = targetChar:FindFirstChild("HumanoidRootPart")
@@ -248,7 +242,7 @@ local function getAdvancedKnifePrediction(targetChar)
 
     local smoothVelocity = Vector3.new(0, 0, 0)
     if targetPlayer and playerFysics[targetPlayer] then smoothVelocity = playerFysics[targetPlayer].SmoothedVelocity end
-    if smoothVelocity.Magnitude < 0.15 then return targetPosition, targetPosition end
+    if smoothVelocity.Magnitude < 0.10 then return targetPosition, targetPosition end
 
     local rawPing = 0.06
     if Stats and Stats:FindFirstChild("Network") and Stats.Network:FindFirstChild("ServerToClientPing") then
@@ -260,34 +254,67 @@ local function getAdvancedKnifePrediction(targetChar)
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
     local exactSpeed = horizontalVelocity.Magnitude
 
-    if exactSpeed > 42 then horizontalVelocity = horizontalVelocity.Unit * 42
-    elseif exactSpeed < 4 then horizontalVelocity = horizontalVelocity * (exactSpeed / 4) end
+    -- ⚡ CALIBRACIÓN DE VELOCIDAD MÁXIMA (Uso de tu dato de 16.715)
+    local MAX_WALKSPEED = 16.715
+    if exactSpeed > MAX_WALKSPEED then 
+        horizontalVelocity = horizontalVelocity.Unit * MAX_WALKSPEED
+        exactSpeed = MAX_WALKSPEED
+    elseif exactSpeed < 2 then 
+        horizontalVelocity = horizontalVelocity * (exactSpeed / 2) 
+        exactSpeed = horizontalVelocity.Magnitude
+    end
+
+    -- 🧠 SISTEMA INTELIGENTE DE MITIGACIÓN DE FINTAS (ANTI-JUKE)
+    local jukeFactor = 1.0
+    local physicsData = playerFysics[targetPlayer]
+    if physicsData and physicsData.LastVelocity then
+        local lastHorizVel = Vector3.new(physicsData.LastVelocity.X, 0, physicsData.LastVelocity.Z)
+        if exactSpeed > 1 and lastHorizVel.Magnitude > 1 then
+            local currentDir = horizontalVelocity.Unit
+            local lastDir = lastHorizVel.Unit
+            local dotProduct = currentDir:Dot(lastDir) -- 1 = Recta perfecta, 0 = Giro de 90 grados, -1 = Giro completo inverso
+            
+            -- Si el dotProduct baja de 0.94, significa que el jugador está zigzagueando o frenando en seco
+            if dotProduct < 0.94 then
+                jukeFactor = math.clamp(dotProduct, 0.15, 1.0) -- Reduce la fuerza predictiva drásticamente
+            end
+        end
+    end
 
     local shortRangeBoost = distance < 20 and 1.15 or 1.0
     local dynamicScale = (1.0 + (distance * 0.008)) * shortRangeBoost
     local maxElasticCap = math.clamp(distance * 0.38, 3.5, 13.5)
-    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 6.8) * travelTime * dynamicScale
+    
+    -- Se añade el jukeFactor al cálculo final horizontal
+    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 6.8) * travelTime * dynamicScale * jukeFactor
 
     if horizontalOffset.Magnitude > maxElasticCap then horizontalOffset = horizontalOffset.Unit * maxElasticCap end
 
+    -- Cálculo Vertical de Alta Frecuencia (Estable en Escaleras/Rampas)
     local verticalOffset = Vector3.new(0, 0, 0)
     local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local absYVelocity = math.abs(smoothVelocity.Y)
 
-    if isAir or absYVelocity > 0.15 then
-        local verticalVelocity = math.clamp(smoothVelocity.Y, -16, 22)
-        local verticalDistanceScale = 1 / (1 + (distance * 0.018))
+    if isAir or absYVelocity > 0.05 then
+        local verticalVelocity = math.clamp(smoothVelocity.Y, -18, 25)
+        local verticalDistanceScale = 1 / (1 + (distance * 0.016))
+        
         if isAir then
             verticalVelocity = verticalVelocity * (verticalVelocity < -1 and 0.40 or 0.70)
         else
-            if verticalVelocity > 0.15 then verticalVelocity = verticalVelocity * 1.45 end
+            if verticalVelocity > 0.05 then 
+                verticalVelocity = verticalVelocity * 1.65 
+            end
         end
-        verticalOffset = Vector3.new(0, verticalVelocity * (MurderConfig.VerticalPred * 5.5) * travelTime * verticalDistanceScale, 0)
+        verticalOffset = Vector3.new(0, verticalVelocity * (MurderConfig.VerticalPred * 6.0) * travelTime * verticalDistanceScale, 0)
     end
 
     return targetPosition, (targetPosition + horizontalOffset + verticalOffset)
 end
 
+-- ============================================================================
+-- 📡 MONITOR DE FILTRADO FÍSICO COMBINADO (VELOCIDAD + HISTORIAL DE DIRECCIÓN)
+-- ============================================================================
 RunService.Heartbeat:Connect(function()
     if MurderConfig.SmartVisibility and not hasKnifeInInventory() then return end
 
@@ -300,14 +327,24 @@ RunService.Heartbeat:Connect(function()
                 local physicsVelocity = hrp.AssemblyLinearVelocity
                 
                 if not playerFysics[player] then
-                    playerFysics[player] = { LastPos = currentPos, LastTime = currentTime, SmoothedVelocity = physicsVelocity }
+                    playerFysics[player] = { LastPos = currentPos, LastTime = currentTime, SmoothedVelocity = physicsVelocity, LastVelocity = physicsVelocity }
                 else
                     local data = playerFysics[player]
                     local deltaTime = currentTime - data.LastTime
-                    local actualSpeed = deltaTime > 0 and (currentPos - data.LastPos).Magnitude / deltaTime or 0
-                    local finalVelocity = physicsVelocity
-                    if physicsVelocity.Magnitude > 4.5 and actualSpeed < 1.8 then finalVelocity = Vector3.new(0, 0, 0) end
-                    data.SmoothedVelocity = data.SmoothedVelocity:Lerp(finalVelocity, 0.18)
+                    
+                    if deltaTime > 0 then
+                        local positionalVelocity = (currentPos - data.LastPos) / deltaTime
+                        local realVelocity = Vector3.new(physicsVelocity.X, positionalVelocity.Y, physicsVelocity.Z)
+                        
+                        if positionalVelocity.Magnitude > 55 then 
+                            realVelocity = Vector3.new(0, 0, 0) 
+                        end
+                        
+                        -- Guardar el estado anterior antes del Lerp para el cálculo del DotProduct anti-fintas
+                        data.LastVelocity = data.SmoothedVelocity
+                        data.SmoothedVelocity = data.SmoothedVelocity:Lerp(realVelocity, 0.20)
+                    end
+                    
                     data.LastPos = currentPos
                     data.LastTime = currentTime
                 end
@@ -370,7 +407,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Interfaz Gráfica (Se mantiene igual)
+-- Interfaz Gráfica
 MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
 MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado) MurderConfig.SilentAim = estado; saveConfig() end)
 MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado) MurderConfig.PrioritizeSheriff = estado; saveConfig() end)
@@ -416,5 +453,4 @@ if ClientServices then
     end
 end
 
--- Retorno para el link de GitHub[span_0](start_span)[span_0](end_span)
 return KillerHub
