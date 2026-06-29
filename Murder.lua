@@ -1,9 +1,8 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V6.6 (KINETIC CALIBRATOR & AUTO-SAVE SUITE)
+-- 👻 KILLER HUB | MURDER SUITE V6.7 (EXTREME PERFORMANCE EDITION)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
--- Servicios Esenciales de Roblox
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,15 +11,13 @@ local Stats = game:GetService("Stats")
 local Camera = workspace.CurrentCamera
 local HttpService = game:GetService("HttpService")
 
--- 1. CONFIGURACIÓN SÓLIDA DEL MOTOR MURDER (Con nueva opción de Prioridad)
 local MurderConfig = {
     SilentAim = false,
     HorizontalPred = 0.145,
     VerticalPred = 0.040,
     WallCheck = false,
-    PrioritizeSheriff = false, -- ✨ Nueva opción
+    PrioritizeSheriff = false,
     
-    -- Ajustes del FOV y Visualizadores
     ShowFOV = false,
     FOVRadius = 150,
     FOVColor = Color3.fromRGB(0, 255, 185),
@@ -31,7 +28,6 @@ local MurderConfig = {
 
 local CONFIG_FILE = "KillerHub_MurderSuite.txt"
 
--- 💾 SISTEMA DE PERSISTENCIA DE DATOS (AUTO-GUARDADO JSON ACTUALIZADO)
 local function saveConfig()
     if writefile then
         local data = {
@@ -39,7 +35,7 @@ local function saveConfig()
             HorizontalPred = MurderConfig.HorizontalPred,
             VerticalPred = MurderConfig.VerticalPred,
             WallCheck = MurderConfig.WallCheck,
-            PrioritizeSheriff = MurderConfig.PrioritizeSheriff, -- ✨ Guardar nueva opción
+            PrioritizeSheriff = MurderConfig.PrioritizeSheriff,
             ShowFOV = MurderConfig.ShowFOV,
             FOVRadius = MurderConfig.FOVRadius,
             ShowPredCircle = MurderConfig.ShowPredCircle,
@@ -60,7 +56,7 @@ local function loadConfig()
             if decoded.HorizontalPred ~= nil then MurderConfig.HorizontalPred = decoded.HorizontalPred end
             if decoded.VerticalPred ~= nil then MurderConfig.VerticalPred = decoded.VerticalPred end
             if decoded.WallCheck ~= nil then MurderConfig.WallCheck = decoded.WallCheck end
-            if decoded.PrioritizeSheriff ~= nil then MurderConfig.PrioritizeSheriff = decoded.PrioritizeSheriff end -- ✨ Cargar nueva opción
+            if decoded.PrioritizeSheriff ~= nil then MurderConfig.PrioritizeSheriff = decoded.PrioritizeSheriff end
             if decoded.ShowFOV ~= nil then MurderConfig.ShowFOV = decoded.ShowFOV end
             if decoded.FOVRadius ~= nil then MurderConfig.FOVRadius = decoded.FOVRadius end
             if decoded.ShowPredCircle ~= nil then MurderConfig.ShowPredCircle = decoded.ShowPredCircle end
@@ -74,7 +70,6 @@ end
 
 loadConfig()
 
--- 2. CREACIÓN DE LA PESTAÑA MURDER
 local MurderTab = KillerHub:CreateTab("Murder", "rbxassetid://10747372517")
 
 local playerFysics = {}
@@ -84,9 +79,9 @@ local lastActualPosition = Vector3.new(0, 0, 0)
 local raycastParams = RaycastParams.new()
 raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
--- Visualizadores (Drawing API) se mantienen intactos...
+-- Visualizadores Drawing API
 local FOVCircle = Drawing.new("Circle")
-FOVCircle.Thickness = 1.5; FOVCircle.NumSides = 64; FOVCircle.Filled = false; FOVCircle.Visible = false 
+FOVCircle.Thickness = 1.5; FOVCircle.NumSides = 48; FOVCircle.Filled = false; FOVCircle.Visible = false -- Reducido lados de 64 a 48 (menos carga gráfica)
 local PredRingOuter = Drawing.new("Circle")
 PredRingOuter.Radius = 6.0; PredRingOuter.Thickness = 1.2; PredRingOuter.Filled = false; PredRingOuter.Color = Color3.fromRGB(255, 35, 35); PredRingOuter.Visible = false
 local PredDotCenter = Drawing.new("Circle")
@@ -94,17 +89,27 @@ PredDotCenter.Radius = 2.5; PredDotCenter.Thickness = 1; PredDotCenter.Filled = 
 local PredLine = Drawing.new("Line")
 PredLine.Thickness = 1.0; PredLine.Color = Color3.fromRGB(185, 0, 255); PredLine.Transparency = 0.65; PredLine.Visible = false
 
+-- ✨ OPTIMIZACIÓN: Cachear la verificación del cuchillo para no saturar el motor de Roblox
+local cachedHasKnife = false
+local lastKnifeCheck = 0
+
 local function hasKnifeInInventory()
-    local char = LocalPlayer.Character
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    return (char and char:FindFirstChild("Knife")) or (backpack and backpack:FindFirstChild("Knife"))
+    local now = os.clock()
+    if now - lastKnifeCheck > 0.2 then -- Solo revisa 5 veces por segundo, no 60 o 200 veces.
+        lastKnifeCheck = now
+        local char = LocalPlayer.Character
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        cachedHasKnife = (char and char:FindFirstChild("Knife")) or (backpack and backpack:FindFirstChild("Knife"))
+    end
+    return cachedHasKnife
 end
 
--- ✨ Función auxiliar optimizada para detectar si un jugador específico tiene la pistola
+-- ✨ OPTIMIZACIÓN: Búsqueda rápida de arma
 local function hasGun(player)
     local char = player.Character
+    if char and char:FindFirstChild("Gun") then return true end
     local backpack = player:FindFirstChild("Backpack")
-    return (char and char:FindFirstChild("Gun")) or (backpack and backpack:FindFirstChild("Gun"))
+    return backpack and backpack:FindFirstChild("Gun") ~= nil
 end
 
 local function isVisibleThroughWalls(targetChar)
@@ -122,9 +127,14 @@ local function isVisibleThroughWalls(targetChar)
 end
 
 -- ============================================================================
--- 🧠 MOTOR DE SELECCIÓN INTELIGENTE RE-DISEÑADO (CON JERARQUÍA DE OBJETIVOS)
+-- 🧠 MOTOR DE SELECCIÓN OPTIMIZADO
 -- ============================================================================
 local function getClosestTargetToFOV()
+    -- Si Smart Visibility está activo y NO tenemos el cuchillo, rompemos el código aquí para ahorrar 100% de CPU
+    if MurderConfig.SmartVisibility and not hasKnifeInInventory() then 
+        return nil 
+    end
+
     local closestInnocent = nil
     local shortestDistance = MurderConfig.FOVRadius 
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -133,31 +143,28 @@ local function getClosestTargetToFOV()
     local sheriffShortestDistance = MurderConfig.FOVRadius
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if player ~= LocalPlayer and player.Character then
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
             local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
             
-            if humanoid and humanoid.Health > 0 then
-                -- Comprobación de pared global prematura para ahorrar cálculos si el Wall Check está activo
-                local visible = true
-                if MurderConfig.WallCheck then
-                    visible = isVisibleThroughWalls(player.Character)
-                end
-
-                if visible then
-                    local hrp = player.Character.HumanoidRootPart
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if hrp and humanoid and humanoid.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                
+                if onScreen then
+                    local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
                     
-                    if onScreen then
-                        local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                        
-                        -- Comprobar si es el Sheriff / Héroe
+                    if distToCenter < MurderConfig.FOVRadius then
+                        -- El Wall Check se ejecuta al final para no desperdiciar Raycasts en gente fuera de rango
+                        if MurderConfig.WallCheck and not isVisibleThroughWalls(player.Character) then
+                            continue
+                        end
+
                         if MurderConfig.PrioritizeSheriff and hasGun(player) then
                             if distToCenter < sheriffShortestDistance then
                                 sheriffShortestDistance = distToCenter
                                 sheriffTarget = player
                             end
                         else
-                            -- Filtro regular para inocentes
                             if distToCenter < shortestDistance then
                                 shortestDistance = distToCenter
                                 closestInnocent = player
@@ -169,11 +176,9 @@ local function getClosestTargetToFOV()
         end
     end
 
-    -- Regresar Sheriff si está disponible y visible, de lo contrario degrada fluidamente al inocente más cercano
     return sheriffTarget or closestInnocent
 end
 
--- El motor balístico (getAdvancedKnifePrediction) y los bucles RunService se mantienen exactamente iguales...
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
     local hrp = targetChar:FindFirstChild("HumanoidRootPart")
@@ -237,25 +242,30 @@ local function getAdvancedKnifePrediction(targetChar)
     return targetPosition, (targetPosition + horizontalOffset + verticalOffset)
 end
 
+-- ✨ OPTIMIZACIÓN: El calculador de físicas solo corre si tenemos el cuchillo equipado o si SmartVisibility está apagado
 RunService.Heartbeat:Connect(function()
+    if MurderConfig.SmartVisibility and not hasKnifeInInventory() then return end
+
     local currentTime = os.clock()
     for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = player.Character.HumanoidRootPart
-            local currentPos = hrp.Position
-            local physicsVelocity = hrp.AssemblyLinearVelocity
-            
-            if not playerFysics[player] then
-                playerFysics[player] = { LastPos = currentPos, LastTime = currentTime, SmoothedVelocity = physicsVelocity }
-            else
-                local data = playerFysics[player]
-                local deltaTime = currentTime - data.LastTime
-                local actualSpeed = deltaTime > 0 and (currentPos - data.LastPos).Magnitude / deltaTime or 0
-                local finalVelocity = physicsVelocity
-                if physicsVelocity.Magnitude > 4.5 and actualSpeed < 1.8 then finalVelocity = Vector3.new(0, 0, 0) end
-                data.SmoothedVelocity = data.SmoothedVelocity:Lerp(finalVelocity, 0.18)
-                data.LastPos = currentPos
-                data.LastTime = currentTime
+        if player.Character then
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local currentPos = hrp.Position
+                local physicsVelocity = hrp.AssemblyLinearVelocity
+                
+                if not playerFysics[player] then
+                    playerFysics[player] = { LastPos = currentPos, LastTime = currentTime, SmoothedVelocity = physicsVelocity }
+                else
+                    local data = playerFysics[player]
+                    local deltaTime = currentTime - data.LastTime
+                    local actualSpeed = deltaTime > 0 and (currentPos - data.LastPos).Magnitude / deltaTime or 0
+                    local finalVelocity = physicsVelocity
+                    if physicsVelocity.Magnitude > 4.5 and actualSpeed < 1.8 then finalVelocity = Vector3.new(0, 0, 0) end
+                    data.SmoothedVelocity = data.SmoothedVelocity:Lerp(finalVelocity, 0.18)
+                    data.LastPos = currentPos
+                    data.LastTime = currentTime
+                end
             end
         end
     end
@@ -305,17 +315,17 @@ RunService.RenderStepped:Connect(function()
         end
     else
         PredDotCenter.Visible = false; PredRingOuter.Visible = false; PredLine.Visible = false
-        if activeTarget and activeTarget.Character and activeTarget.Character:FindFirstChild("HumanoidRootPart") then
-            local currentHrpPos = activeTarget.Character.HumanoidRootPart.Position
-            lastActualPosition = currentHrpPos
-            lastVisualPosition = currentHrpPos
+        if activeTarget and activeTarget.Character then
+            local hrp = activeTarget.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                lastActualPosition = hrp.Position
+                lastVisualPosition = hrp.Position
+            end
         end
     end
 end)
 
--- ============================================================================
--- ⚙️ INTERFAZ GRÁFICA ACTUALIZADA CON EL NUEVO TOGGLE
--- ============================================================================
+-- Interfaz Gráfica
 MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
 
 MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado)
@@ -323,7 +333,6 @@ MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", functio
     saveConfig()
 end)
 
--- ✨ NUEVO COMPONENTE: Priorizar al portador del arma
 MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado)
     MurderConfig.PrioritizeSheriff = estado
     saveConfig()
@@ -367,7 +376,7 @@ MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, function(v
     saveConfig()
 end)
 
--- Hooks de disparo síncronos se mantienen igual...
+-- Metodos Hook
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
 if ClientServices then
     local WeaponService = require(ClientServices:WaitForChild("WeaponService"))
@@ -397,5 +406,5 @@ if ClientServices then
     end
 end
 
--- Recuerda poner siempre el retorno al final para mantener tu cadena infinita como se indica en "EjemploAPI.lua (1).txt[span_0](start_span)"[span_0](end_span)
+-- Retorno para mantener el encadenamiento de links infinito[span_0](start_span)[span_0](end_span)
 return KillerHub
