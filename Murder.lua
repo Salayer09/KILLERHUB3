@@ -4,7 +4,7 @@
 -- Adaptado a la API V2.6.2 con Persistencia Nativa y Flags Optimizadas.
 
 -- 1. CARGA DEL CORE ORIGINAL
-local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Paolo0109/KillerHUB/refs/heads/main/InterfazBase.lua"))()
+local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/refs/heads/main/Sheriff.lua"))()
 
 -- 2. ACTIVACIÓN DEL SISTEMA DE AUTOGUARDADO PERSISTENTE (Reemplaza txt manuales)
 KillerHub:EnableAutosave("KillerHub_MurderSuite.json")
