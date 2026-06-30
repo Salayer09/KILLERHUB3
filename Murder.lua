@@ -1,5 +1,5 @@
 -- ============================================================================
---  ghost KILLER HUB | MURDER SUITE V6.9 (ANTI-JUKES & SPEED CALIBRATED)
+-- 👻 KILLER HUB | MURDER SUITE V7.0 (ANTI-LAG & ADVANCED JUKE DEFIER)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
@@ -217,7 +217,7 @@ local function getClosestTargetToFOV()
 end
 
 -- ============================================================================
--- 🧠 MOTOR BALÍSTICO AVANZADO Calibrado (ANTI-FINTAS)
+-- 🧠 MOTOR BALÍSTICO AVANZADO CALIBRADO (ANTI-FINTAS Y DETECTOR DE GHOSTING)
 -- ============================================================================
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
@@ -231,6 +231,13 @@ local function getAdvancedKnifePrediction(targetChar)
     local targetPosition = hrp.Position
     local distance = (targetPosition - localHrp.Position).Magnitude
     
+    local physicsData = playerFysics[targetPlayer]
+    
+    -- 🚨 DETECCIÓN ULTRA DE DESCONEXIÓN: Si el jugador se congeló/quedó laggeado, anular predicción
+    if physicsData and physicsData.IsLaggingOut then
+        return targetPosition, targetPosition
+    end
+
     local extentsY = targetChar:GetExtentsSize().Y
     local scaleFactor = 1.0
     if humanoid:FindFirstChild("BodyHeightScale") then scaleFactor = humanoid.BodyHeightScale.Value end
@@ -241,7 +248,7 @@ local function getAdvancedKnifePrediction(targetChar)
     end
 
     local smoothVelocity = Vector3.new(0, 0, 0)
-    if targetPlayer and playerFysics[targetPlayer] then smoothVelocity = playerFysics[targetPlayer].SmoothedVelocity end
+    if physicsData then smoothVelocity = physicsData.SmoothedVelocity end
     if smoothVelocity.Magnitude < 0.10 then return targetPosition, targetPosition end
 
     local rawPing = 0.06
@@ -254,7 +261,7 @@ local function getAdvancedKnifePrediction(targetChar)
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
     local exactSpeed = horizontalVelocity.Magnitude
 
-    -- ⚡ CALIBRACIÓN DE VELOCIDAD MÁXIMA (Uso de tu dato de 16.715)
+    -- Calibración WalkSpeed Máxima Estricta (16.715)
     local MAX_WALKSPEED = 16.715
     if exactSpeed > MAX_WALKSPEED then 
         horizontalVelocity = horizontalVelocity.Unit * MAX_WALKSPEED
@@ -264,19 +271,26 @@ local function getAdvancedKnifePrediction(targetChar)
         exactSpeed = horizontalVelocity.Magnitude
     end
 
-    -- 🧠 SISTEMA INTELIGENTE DE MITIGACIÓN DE FINTAS (ANTI-JUKE)
+    -- 🧠 SISTEMA INTEGRADO DE COMPENSACIÓN DE DIRECCIÓN Y CAMBIOS DE VELOCIDAD
     local jukeFactor = 1.0
-    local physicsData = playerFysics[targetPlayer]
     if physicsData and physicsData.LastVelocity then
         local lastHorizVel = Vector3.new(physicsData.LastVelocity.X, 0, physicsData.LastVelocity.Z)
-        if exactSpeed > 1 and lastHorizVel.Magnitude > 1 then
+        local lastSpeed = lastHorizVel.Magnitude
+        
+        if exactSpeed > 1 and lastSpeed > 1 then
             local currentDir = horizontalVelocity.Unit
             local lastDir = lastHorizVel.Unit
-            local dotProduct = currentDir:Dot(lastDir) -- 1 = Recta perfecta, 0 = Giro de 90 grados, -1 = Giro completo inverso
+            local dotProduct = currentDir:Dot(lastDir)
             
-            -- Si el dotProduct baja de 0.94, significa que el jugador está zigzagueando o frenando en seco
+            -- 1. Anti-Fintas por Dirección (Giro repentino)
             if dotProduct < 0.94 then
-                jukeFactor = math.clamp(dotProduct, 0.15, 1.0) -- Reduce la fuerza predictiva drásticamente
+                jukeFactor = math.clamp(dotProduct, 0.10, 1.0)
+            end
+            
+            -- 2. Anti-Fintas por Velocidad (Frenados bruscos en fintas complejas)
+            if exactSpeed < lastSpeed * 0.85 then
+                local decelerationRatio = exactSpeed / lastSpeed
+                jukeFactor = jukeFactor * math.clamp(decelerationRatio, 0.05, 1.0)
             end
         end
     end
@@ -285,12 +299,11 @@ local function getAdvancedKnifePrediction(targetChar)
     local dynamicScale = (1.0 + (distance * 0.008)) * shortRangeBoost
     local maxElasticCap = math.clamp(distance * 0.38, 3.5, 13.5)
     
-    -- Se añade el jukeFactor al cálculo final horizontal
     local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 6.8) * travelTime * dynamicScale * jukeFactor
 
     if horizontalOffset.Magnitude > maxElasticCap then horizontalOffset = horizontalOffset.Unit * maxElasticCap end
 
-    -- Cálculo Vertical de Alta Frecuencia (Estable en Escaleras/Rampas)
+    -- Cálculo Vertical Estable (Rampas/Escaleras)
     local verticalOffset = Vector3.new(0, 0, 0)
     local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local absYVelocity = math.abs(smoothVelocity.Y)
@@ -313,7 +326,7 @@ local function getAdvancedKnifePrediction(targetChar)
 end
 
 -- ============================================================================
--- 📡 MONITOR DE FILTRADO FÍSICO COMBINADO (VELOCIDAD + HISTORIAL DE DIRECCIÓN)
+-- 📡 FILTRADO FÍSICO AVANZADO (RESOLUCIÓN DE GHOSTING / CONEXIÓN)
 -- ============================================================================
 RunService.Heartbeat:Connect(function()
     if MurderConfig.SmartVisibility and not hasKnifeInInventory() then return end
@@ -327,7 +340,15 @@ RunService.Heartbeat:Connect(function()
                 local physicsVelocity = hrp.AssemblyLinearVelocity
                 
                 if not playerFysics[player] then
-                    playerFysics[player] = { LastPos = currentPos, LastTime = currentTime, SmoothedVelocity = physicsVelocity, LastVelocity = physicsVelocity }
+                    playerFysics[player] = { 
+                        LastPos = currentPos, 
+                        LastTime = currentTime, 
+                        SmoothedVelocity = physicsVelocity, 
+                        LastVelocity = physicsVelocity,
+                        LastRawVelocity = physicsVelocity,
+                        ConsecutiveSameVelocity = 0,
+                        IsLaggingOut = false
+                    }
                 else
                     local data = playerFysics[player]
                     local deltaTime = currentTime - data.LastTime
@@ -336,11 +357,29 @@ RunService.Heartbeat:Connect(function()
                         local positionalVelocity = (currentPos - data.LastPos) / deltaTime
                         local realVelocity = Vector3.new(physicsVelocity.X, positionalVelocity.Y, physicsVelocity.Z)
                         
+                        -- 🚨 DETECTOR DE EXTRAPOLACIÓN MATEMÁTICA (GHOSTING DE PING)
+                        -- Si la velocidad en los 3 ejes es exactamente idéntica sin un solo cambio de flotante
+                        if data.LastRawVelocity and (realVelocity - data.LastRawVelocity).Magnitude < 0.0001 then
+                            data.ConsecutiveSameVelocity = data.ConsecutiveSameVelocity + 1
+                        else
+                            data.ConsecutiveSameVelocity = 0
+                        end
+                        
+                        data.LastRawVelocity = realVelocity
+                        
+                        -- Si lleva más de 20 frames moviéndose con velocidad matemáticamente idéntica, el internet de ese jugador murió
+                        if data.ConsecutiveSameVelocity > 20 and realVelocity.Magnitude > 1 then
+                            data.IsLaggingOut = true
+                            realVelocity = Vector3.new(0, 0, 0) -- Invalidar vector para congelar mira en su cuerpo real
+                        else
+                            data.IsLaggingOut = false
+                        end
+                        
+                        -- Control de teletransporte / Resets de red
                         if positionalVelocity.Magnitude > 55 then 
                             realVelocity = Vector3.new(0, 0, 0) 
                         end
                         
-                        -- Guardar el estado anterior antes del Lerp para el cálculo del DotProduct anti-fintas
                         data.LastVelocity = data.SmoothedVelocity
                         data.SmoothedVelocity = data.SmoothedVelocity:Lerp(realVelocity, 0.20)
                     end
