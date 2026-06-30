@@ -1,7 +1,7 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V7.0 (ANTI-LAG & ADVANCED JUKE DEFIER)
+-- 👻 KILLER HUB | MURDER SUITE V7.5 (ADAPTADO A NUEVA UI LIBRARY)
 -- ============================================================================
-local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
+local Killer = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -70,8 +70,8 @@ end
 
 loadConfig()
 
--- Corregido para API v3.1: Solo un parámetro de texto para evitar errores de metatabla
-local MurderTab = KillerHub:CreateTab("Murder")
+-- Creación de la pestaña con la nueva firma
+local MurderTab = Killer:CreateTab("Murder", "rbxassetid://10747372517")
 
 local playerFysics = {}
 local lastVisualPosition = Vector3.new(0, 0, 0)
@@ -80,21 +80,16 @@ local lastActualPosition = Vector3.new(0, 0, 0)
 local raycastParams = RaycastParams.new()
 raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
--- Visualizadores Drawing API (48 lados optimizado)
+-- Visualizadores Drawing API (Grosor del FOV reducido a 1.0 para que se vea más delgado)
 local FOVCircle = Drawing.new("Circle")
-FOVCircle.Thickness = 1.5;
-FOVCircle.NumSides = 48; FOVCircle.Filled = false; FOVCircle.Visible = false 
+FOVCircle.Thickness = 1.0; FOVCircle.NumSides = 48; FOVCircle.Filled = false; FOVCircle.Visible = false 
 local PredRingOuter = Drawing.new("Circle")
-PredRingOuter.Radius = 6.0; PredRingOuter.Thickness = 1.2;
-PredRingOuter.Filled = false; PredRingOuter.Color = Color3.fromRGB(255, 35, 35); PredRingOuter.Visible = false
+PredRingOuter.Radius = 6.0; PredRingOuter.Thickness = 1.2; PredRingOuter.Filled = false; PredRingOuter.Color = Color3.fromRGB(255, 35, 35); PredRingOuter.Visible = false
 local PredDotCenter = Drawing.new("Circle")
-PredDotCenter.Radius = 2.5; PredDotCenter.Thickness = 1;
-PredDotCenter.Filled = true; PredDotCenter.Color = Color3.fromRGB(255, 255, 255); PredDotCenter.Visible = false
+PredDotCenter.Radius = 2.5; PredDotCenter.Thickness = 1; PredDotCenter.Filled = true; PredDotCenter.Color = Color3.fromRGB(255, 255, 255); PredDotCenter.Visible = false
 local PredLine = Drawing.new("Line")
-PredLine.Thickness = 1.0;
-PredLine.Color = Color3.fromRGB(185, 0, 255); PredLine.Transparency = 0.65; PredLine.Visible = false
+PredLine.Thickness = 1.0; PredLine.Color = Color3.fromRGB(185, 0, 255); PredLine.Transparency = 0.65; PredLine.Visible = false
 
--- Cache del cuchillo propio
 local cachedHasKnife = false
 local lastKnifeCheck = 0
 
@@ -109,7 +104,6 @@ local function hasKnifeInInventory()
     return cachedHasKnife
 end
 
--- Función interna de escaneo rápido de arma
 local function checkPlayerHasGun(player)
     local char = player.Character
     if char and char:FindFirstChild("Gun") then return true end
@@ -128,9 +122,6 @@ local function isVisibleThroughWalls(targetChar)
     return not (raycastResult and raycastResult.Instance and raycastResult.Instance.CanCollide)
 end
 
--- ============================================================================
--- 🎯 SISTEMA DE MEMORIA Y FIJACIÓN DEL SHERIFF / HÉROE
--- ============================================================================
 local CurrentSheriff = nil
 local lastSheriffScan = 0
 
@@ -161,9 +152,6 @@ local function updateSheriffTarget()
     end
 end
 
--- ============================================================================
--- 🧠 MOTOR DE SELECCIÓN INTELIGENTE CON OBJETIVO ASIGNADO
--- ============================================================================
 local function getClosestTargetToFOV()
     if MurderConfig.SmartVisibility and not hasKnifeInInventory() then 
         return nil 
@@ -221,9 +209,6 @@ local function getClosestTargetToFOV()
     return closestInnocent
 end
 
--- ============================================================================
--- 🧠 MOTOR BALÍSTICO AVANZADO CALIBRADO (ANTI-FINTAS Y DETECTOR DE GHOSTING)
--- ============================================================================
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
     local hrp = targetChar:FindFirstChild("HumanoidRootPart")
@@ -238,7 +223,6 @@ local function getAdvancedKnifePrediction(targetChar)
     
     local physicsData = playerFysics[targetPlayer]
     
-    -- 🚨 DETECCIÓN ULTRA DE DESCONEXIÓN: Si el jugador se congeló/quedó laggeado, anular predicción
     if physicsData and physicsData.IsLaggingOut then
         return targetPosition, targetPosition
     end
@@ -266,7 +250,6 @@ local function getAdvancedKnifePrediction(targetChar)
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
     local exactSpeed = horizontalVelocity.Magnitude
 
-    -- Calibración WalkSpeed Máxima Estricta (16.715)
     local MAX_WALKSPEED = 16.715
     if exactSpeed > MAX_WALKSPEED then 
         horizontalVelocity = horizontalVelocity.Unit * MAX_WALKSPEED
@@ -276,23 +259,20 @@ local function getAdvancedKnifePrediction(targetChar)
         exactSpeed = horizontalVelocity.Magnitude
     end
 
-    -- 🧠 SISTEMA INTEGRADO DE COMPENSACIÓN DE DIRECCIÓN Y CAMBIOS DE VELOCIDAD
     local jukeFactor = 1.0
     if physicsData and physicsData.LastVelocity then
         local lastHorizVel = Vector3.new(physicsData.LastVelocity.X, 0, physicsData.LastVelocity.Z)
         local lastSpeed = lastHorizVel.Magnitude
-    
+        
         if exactSpeed > 1 and lastSpeed > 1 then
             local currentDir = horizontalVelocity.Unit
             local lastDir = lastHorizVel.Unit
             local dotProduct = currentDir:Dot(lastDir)
             
-            -- 1. Anti-Fintas por Dirección (Giro repentino)
             if dotProduct < 0.94 then
                 jukeFactor = math.clamp(dotProduct, 0.10, 1.0)
             end
             
-            -- 2. Anti-Fintas por Velocidad (Frenados bruscos en fintas complejas)
             if exactSpeed < lastSpeed * 0.85 then
                 local decelerationRatio = exactSpeed / lastSpeed
                 jukeFactor = jukeFactor * math.clamp(decelerationRatio, 0.05, 1.0)
@@ -308,7 +288,6 @@ local function getAdvancedKnifePrediction(targetChar)
 
     if horizontalOffset.Magnitude > maxElasticCap then horizontalOffset = horizontalOffset.Unit * maxElasticCap end
 
-    -- Cálculo Vertical Estable (Rampas/Escaleras)
     local verticalOffset = Vector3.new(0, 0, 0)
     local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local absYVelocity = math.abs(smoothVelocity.Y)
@@ -330,9 +309,7 @@ local function getAdvancedKnifePrediction(targetChar)
     return targetPosition, (targetPosition + horizontalOffset + verticalOffset)
 end
 
--- ============================================================================
--- 📡 FILTRADO FÍSICO AVANZADO (RESOLUCIÓN DE GHOSTING / CONEXIÓN)
--- ============================================================================
+-- Mecánicas de Filtrado Físico
 RunService.Heartbeat:Connect(function()
     if MurderConfig.SmartVisibility and not hasKnifeInInventory() then return end
 
@@ -357,13 +334,11 @@ RunService.Heartbeat:Connect(function()
                 else
                     local data = playerFysics[player]
                     local deltaTime = currentTime - data.LastTime
-            
+                    
                     if deltaTime > 0 then
                         local positionalVelocity = (currentPos - data.LastPos) / deltaTime
                         local realVelocity = Vector3.new(physicsVelocity.X, positionalVelocity.Y, physicsVelocity.Z)
-        
-                        -- 🚨 DETECTOR DE EXTRAPOLACIÓN MATEMÁTICA (GHOSTING DE PING)
-                        -- Si la velocidad en los 3 ejes es exactamente idéntica sin un solo cambio de flotante
+                        
                         if data.LastRawVelocity and (realVelocity - data.LastRawVelocity).Magnitude < 0.0001 then
                             data.ConsecutiveSameVelocity = data.ConsecutiveSameVelocity + 1
                         else
@@ -371,16 +346,14 @@ RunService.Heartbeat:Connect(function()
                         end
                         
                         data.LastRawVelocity = realVelocity
-                    
-                        -- Si lleva más de 20 frames moviéndose con velocidad matemáticamente idéntica, el internet de ese jugador murió
+                        
                         if data.ConsecutiveSameVelocity > 20 and realVelocity.Magnitude > 1 then
                             data.IsLaggingOut = true
-                            realVelocity = Vector3.new(0, 0, 0) -- Invalidar vector para congelar mira en su cuerpo real
+                            realVelocity = Vector3.new(0, 0, 0)
                         else
                             data.IsLaggingOut = false
                         end
                         
-                        -- Control de teletransporte / Resets de red
                         if positionalVelocity.Magnitude > 55 then 
                             realVelocity = Vector3.new(0, 0, 0) 
                         end
@@ -434,16 +407,13 @@ RunService.RenderStepped:Connect(function()
                 PredDotCenter.Visible = true
                 PredRingOuter.Visible = true
             else
-                PredDotCenter.Visible = false;
-                PredRingOuter.Visible = false; PredLine.Visible = false
+                PredDotCenter.Visible = false; PredRingOuter.Visible = false; PredLine.Visible = false
             end
         else
-            PredDotCenter.Visible = false;
-            PredRingOuter.Visible = false; PredLine.Visible = false
+            PredDotCenter.Visible = false; PredRingOuter.Visible = false; PredLine.Visible = false
         end
     else
-        PredDotCenter.Visible = false;
-        PredRingOuter.Visible = false; PredLine.Visible = false
+        PredDotCenter.Visible = false; PredRingOuter.Visible = false; PredLine.Visible = false
         if activeTarget and activeTarget.Character then
             local hrp = activeTarget.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
@@ -454,13 +424,15 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Interfaz Gráfica
+-- ============================================================================
+-- 🎨 ESTRUCTURA DE INTERFAZ GRÁFICA CORREGIDA (API COMPATIBLE)
+-- ============================================================================
+
 MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
 MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado) MurderConfig.SilentAim = estado; saveConfig() end)
 MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado) MurderConfig.PrioritizeSheriff = estado; saveConfig() end)
 MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", function(estado) MurderConfig.WallCheck = estado; saveConfig() end)
 
--- Sliders completamente actualizados con el parámetro 'step' estructural en la posición correcta (v3.1)
 MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, 1, function(valor) MurderConfig.HorizontalPred = valor / 1000; saveConfig() end)
 MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, 1, function(valor) MurderConfig.VerticalPred = valor / 1000; saveConfig() end)
 
@@ -469,9 +441,10 @@ MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium
 MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Asesino)", function(estado) MurderConfig.SmartVisibility = estado; saveConfig() end)
 
 MurderTab:CreateSection("Personalización del Campo de Visión (FOV)")
--- ToggleColorPicker funcionando perfectamente bajo el estándar nativo v3.1
-MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Mostrar Círculo de FOV", MurderConfig.FOVColor, function(estadoToggle) MurderConfig.ShowFOV = estadoToggle; saveConfig() end, function(colorSeleccionado) MurderConfig.FOVColor = colorSeleccionado; saveConfig() end)
+MurderTab:CreateToggle("FovVisibleMurder", "Mostrar Círculo de FOV", function(estadoToggle) MurderConfig.ShowFOV = estadoToggle; saveConfig() end)
 MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, 1, function(valor) MurderConfig.FOVRadius = valor; saveConfig() end)
+-- Color Picker integrado con sincronización automática de datos
+MurderTab:CreateColorPicker("FovColorMurder", "Color del FOV", MurderConfig.FOVColor, function(colorElegido) MurderConfig.FOVColor = colorElegido; saveConfig() end)
 
 -- Métodos de Hooking síncronos
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
@@ -503,4 +476,4 @@ if ClientServices then
     end
 end
 
-return KillerHub
+return Killer
