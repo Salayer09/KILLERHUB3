@@ -1,7 +1,16 @@
 -- ============================================================================
 -- 👻 KILLER HUB | MURDER SUITE V7.0 (ANTI-LAG & ADVANCED JUKE DEFIER)
 -- ============================================================================
-local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
+-- Adaptado a la API V2.6.2 con Persistencia Nativa y Flags Optimizadas.
+
+-- 1. CARGA DEL CORE ORIGINAL
+local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Paolo0109/KillerHUB/refs/heads/main/InterfazBase.lua"))()
+
+-- 2. ACTIVACIÓN DEL SISTEMA DE AUTOGUARDADO PERSISTENTE (Reemplaza txt manuales)
+KillerHub:EnableAutosave("KillerHub_MurderSuite.json")
+
+-- 3. PARAMETRIZACIÓN DEL TEMA VISUAL
+KillerHub:SetTheme("Blood")
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -9,66 +18,20 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local Camera = workspace.CurrentCamera
-local HttpService = game:GetService("HttpService")
 
+-- Enlace dinámico con el diccionario interno de banderas de la librería
 local MurderConfig = {
     SilentAim = false,
     HorizontalPred = 0.145,
     VerticalPred = 0.040,
     WallCheck = false,
     PrioritizeSheriff = false,
-    
     ShowFOV = false,
     FOVRadius = 150,
     FOVColor = Color3.fromRGB(0, 255, 185),
-    
     ShowPredCircle = false,
     SmartVisibility = false
 }
-
-local CONFIG_FILE = "KillerHub_MurderSuite.txt"
-
-local function saveConfig()
-    if writefile then
-        local data = {
-            SilentAim = MurderConfig.SilentAim,
-            HorizontalPred = MurderConfig.HorizontalPred,
-            VerticalPred = MurderConfig.VerticalPred,
-            WallCheck = MurderConfig.WallCheck,
-            PrioritizeSheriff = MurderConfig.PrioritizeSheriff,
-            ShowFOV = MurderConfig.ShowFOV,
-            FOVRadius = MurderConfig.FOVRadius,
-            ShowPredCircle = MurderConfig.ShowPredCircle,
-            SmartVisibility = MurderConfig.SmartVisibility,
-            FOVColor = {MurderConfig.FOVColor.R, MurderConfig.FOVColor.G, MurderConfig.FOVColor.B}
-        }
-        writefile(CONFIG_FILE, HttpService:JSONEncode(data))
-    end
-end
-
-local function loadConfig()
-    if readfile and isfile and isfile(CONFIG_FILE) then
-        local success, decoded = pcall(function()
-            return HttpService:JSONDecode(readfile(CONFIG_FILE))
-        end)
-        if success and decoded then
-            if decoded.SilentAim ~= nil then MurderConfig.SilentAim = decoded.SilentAim end
-            if decoded.HorizontalPred ~= nil then MurderConfig.HorizontalPred = decoded.HorizontalPred end
-            if decoded.VerticalPred ~= nil then MurderConfig.VerticalPred = decoded.VerticalPred end
-            if decoded.WallCheck ~= nil then MurderConfig.WallCheck = decoded.WallCheck end
-            if decoded.PrioritizeSheriff ~= nil then MurderConfig.PrioritizeSheriff = decoded.PrioritizeSheriff end
-            if decoded.ShowFOV ~= nil then MurderConfig.ShowFOV = decoded.ShowFOV end
-            if decoded.FOVRadius ~= nil then MurderConfig.FOVRadius = decoded.FOVRadius end
-            if decoded.ShowPredCircle ~= nil then MurderConfig.ShowPredCircle = decoded.ShowPredCircle end
-            if decoded.SmartVisibility ~= nil then MurderConfig.SmartVisibility = decoded.SmartVisibility end
-            if decoded.FOVColor ~= nil then
-                MurderConfig.FOVColor = Color3.new(decoded.FOVColor[1], decoded.FOVColor[2], decoded.FOVColor[3])
-            end
-        end
-    end
-end
-
-loadConfig()
 
 local MurderTab = KillerHub:CreateTab("Murder", "rbxassetid://10747372517")
 
@@ -233,7 +196,6 @@ local function getAdvancedKnifePrediction(targetChar)
     
     local physicsData = playerFysics[targetPlayer]
     
-    -- 🚨 DETECCIÓN ULTRA DE DESCONEXIÓN: Si el jugador se congeló/quedó laggeado, anular predicción
     if physicsData and physicsData.IsLaggingOut then
         return targetPosition, targetPosition
     end
@@ -261,7 +223,6 @@ local function getAdvancedKnifePrediction(targetChar)
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
     local exactSpeed = horizontalVelocity.Magnitude
 
-    -- Calibración WalkSpeed Máxima Estricta (16.715)
     local MAX_WALKSPEED = 16.715
     if exactSpeed > MAX_WALKSPEED then 
         horizontalVelocity = horizontalVelocity.Unit * MAX_WALKSPEED
@@ -271,7 +232,6 @@ local function getAdvancedKnifePrediction(targetChar)
         exactSpeed = horizontalVelocity.Magnitude
     end
 
-    -- 🧠 SISTEMA INTEGRADO DE COMPENSACIÓN DE DIRECCIÓN Y CAMBIOS DE VELOCIDAD
     local jukeFactor = 1.0
     if physicsData and physicsData.LastVelocity then
         local lastHorizVel = Vector3.new(physicsData.LastVelocity.X, 0, physicsData.LastVelocity.Z)
@@ -282,12 +242,10 @@ local function getAdvancedKnifePrediction(targetChar)
             local lastDir = lastHorizVel.Unit
             local dotProduct = currentDir:Dot(lastDir)
             
-            -- 1. Anti-Fintas por Dirección (Giro repentino)
             if dotProduct < 0.94 then
                 jukeFactor = math.clamp(dotProduct, 0.10, 1.0)
             end
             
-            -- 2. Anti-Fintas por Velocidad (Frenados bruscos en fintas complejas)
             if exactSpeed < lastSpeed * 0.85 then
                 local decelerationRatio = exactSpeed / lastSpeed
                 jukeFactor = jukeFactor * math.clamp(decelerationRatio, 0.05, 1.0)
@@ -303,7 +261,6 @@ local function getAdvancedKnifePrediction(targetChar)
 
     if horizontalOffset.Magnitude > maxElasticCap then horizontalOffset = horizontalOffset.Unit * maxElasticCap end
 
-    -- Cálculo Vertical Estable (Rampas/Escaleras)
     local verticalOffset = Vector3.new(0, 0, 0)
     local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local absYVelocity = math.abs(smoothVelocity.Y)
@@ -357,8 +314,6 @@ RunService.Heartbeat:Connect(function()
                         local positionalVelocity = (currentPos - data.LastPos) / deltaTime
                         local realVelocity = Vector3.new(physicsVelocity.X, positionalVelocity.Y, physicsVelocity.Z)
                         
-                        -- 🚨 DETECTOR DE EXTRAPOLACIÓN MATEMÁTICA (GHOSTING DE PING)
-                        -- Si la velocidad en los 3 ejes es exactamente idéntica sin un solo cambio de flotante
                         if data.LastRawVelocity and (realVelocity - data.LastRawVelocity).Magnitude < 0.0001 then
                             data.ConsecutiveSameVelocity = data.ConsecutiveSameVelocity + 1
                         else
@@ -367,15 +322,13 @@ RunService.Heartbeat:Connect(function()
                         
                         data.LastRawVelocity = realVelocity
                         
-                        -- Si lleva más de 20 frames moviéndose con velocidad matemáticamente idéntica, el internet de ese jugador murió
                         if data.ConsecutiveSameVelocity > 20 and realVelocity.Magnitude > 1 then
                             data.IsLaggingOut = true
-                            realVelocity = Vector3.new(0, 0, 0) -- Invalidar vector para congelar mira en su cuerpo real
+                            realVelocity = Vector3.new(0, 0, 0)
                         else
                             data.IsLaggingOut = false
                         end
                         
-                        -- Control de teletransporte / Resets de red
                         if positionalVelocity.Magnitude > 55 then 
                             realVelocity = Vector3.new(0, 0, 0) 
                         end
@@ -446,23 +399,66 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Interfaz Gráfica
+-- ============================================================================
+-- 🖥️ ESTRUCTURACIÓN DE COMPONENTES INTERFAZ GRÁFICA (V2.6.2 NATIVA)
+-- ============================================================================
 MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
-MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado) MurderConfig.SilentAim = estado; saveConfig() end)
-MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado) MurderConfig.PrioritizeSheriff = estado; saveConfig() end)
-MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", function(estado) MurderConfig.WallCheck = estado; saveConfig() end)
-MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, function(valor) MurderConfig.HorizontalPred = valor / 1000; saveConfig() end)
-MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, function(valor) MurderConfig.VerticalPred = valor / 1000; saveConfig() end)
+
+MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", false, function(estado) 
+    MurderConfig.SilentAim = estado 
+end)
+
+MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", false, function(estado) 
+    MurderConfig.PrioritizeSheriff = estado 
+end)
+
+MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", false, function(estado) 
+    MurderConfig.WallCheck = estado 
+end)
+
+-- Los Sliders se adaptaron a los límites lógicos requeridos por tu motor balístico
+MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, 145, function(valor) 
+    MurderConfig.HorizontalPred = valor / 1000 
+end)
+
+MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, 40, function(valor) 
+    MurderConfig.VerticalPred = valor / 1000 
+end)
 
 MurderTab:CreateSection("Visualizadores e Interfaz Inteligente")
-MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium (Círculo Hueco)", function(estado) MurderConfig.ShowPredCircle = estado; saveConfig() end)
-MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Asesino)", function(estado) MurderConfig.SmartVisibility = estado; saveConfig() end)
+
+MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium (Círculo Hueco)", false, function(estado) 
+    MurderConfig.ShowPredCircle = estado 
+end)
+
+MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Asesino)", false, function(estado) 
+    MurderConfig.SmartVisibility = estado 
+end)
 
 MurderTab:CreateSection("Personalización del Campo de Visión (FOV)")
-MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Mostrar Círculo de FOV", MurderConfig.FOVColor, function(estadoToggle) MurderConfig.ShowFOV = estadoToggle; saveConfig() end, function(colorSeleccionado) MurderConfig.FOVColor = colorSeleccionado; saveConfig() end)
-MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, function(valor) MurderConfig.FOVRadius = valor; saveConfig() end)
 
--- Métodos de Hooking síncronos
+-- Uso de la firma exacta de CreateToggleColorPicker (Círculo RGB y Toggle acoplado)
+MurderTab:CreateToggleColorPicker(
+    "FovVisibleMurder", 
+    "FovColorMurder", 
+    "Mostrar Círculo de FOV", 
+    false, 
+    Color3.fromRGB(0, 255, 185), 
+    function(estadoToggle) 
+        MurderConfig.ShowFOV = estadoToggle 
+    end, 
+    function(colorSeleccionado) 
+        MurderConfig.FOVColor = colorSeleccionado 
+    end
+)
+
+MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, 150, function(valor) 
+    MurderConfig.FOVRadius = valor 
+end)
+
+-- ============================================================================
+-- 🔗 GANCHOS SÍNCRONOS DE MEMORIA (HOOKS WEAPON SERVICE)
+-- ============================================================================
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
 if ClientServices then
     local WeaponService = require(ClientServices:WaitForChild("WeaponService"))
@@ -492,4 +488,7 @@ if ClientServices then
     end
 end
 
+-- ============================================================================
+-- 🚪 RETORNO GLOBAL OBLIGATORIO PARA LA CADENA DE COMPILACIÓN
+-- ============================================================================
 return KillerHub
