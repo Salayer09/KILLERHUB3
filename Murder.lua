@@ -70,7 +70,8 @@ end
 
 loadConfig()
 
-local MurderTab = KillerHub:CreateTab("Murder", "rbxassetid://10747372517")
+-- Corregido para API v3.1: Solo un parámetro de texto para evitar errores de metatabla
+local MurderTab = KillerHub:CreateTab("Murder")
 
 local playerFysics = {}
 local lastVisualPosition = Vector3.new(0, 0, 0)
@@ -458,6 +459,8 @@ MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
 MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado) MurderConfig.SilentAim = estado; saveConfig() end)
 MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado) MurderConfig.PrioritizeSheriff = estado; saveConfig() end)
 MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", function(estado) MurderConfig.WallCheck = estado; saveConfig() end)
+
+-- Sliders completamente actualizados con el parámetro 'step' estructural en la posición correcta (v3.1)
 MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, 1, function(valor) MurderConfig.HorizontalPred = valor / 1000; saveConfig() end)
 MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, 1, function(valor) MurderConfig.VerticalPred = valor / 1000; saveConfig() end)
 
@@ -466,6 +469,7 @@ MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium
 MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Asesino)", function(estado) MurderConfig.SmartVisibility = estado; saveConfig() end)
 
 MurderTab:CreateSection("Personalización del Campo de Visión (FOV)")
+-- ToggleColorPicker funcionando perfectamente bajo el estándar nativo v3.1
 MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Mostrar Círculo de FOV", MurderConfig.FOVColor, function(estadoToggle) MurderConfig.ShowFOV = estadoToggle; saveConfig() end, function(colorSeleccionado) MurderConfig.FOVColor = colorSeleccionado; saveConfig() end)
 MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, 1, function(valor) MurderConfig.FOVRadius = valor; saveConfig() end)
 
