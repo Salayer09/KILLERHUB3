@@ -81,13 +81,17 @@ raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
 -- Visualizadores Drawing API (48 lados optimizado)
 local FOVCircle = Drawing.new("Circle")
-FOVCircle.Thickness = 1.5; FOVCircle.NumSides = 48; FOVCircle.Filled = false; FOVCircle.Visible = false 
+FOVCircle.Thickness = 1.5;
+FOVCircle.NumSides = 48; FOVCircle.Filled = false; FOVCircle.Visible = false 
 local PredRingOuter = Drawing.new("Circle")
-PredRingOuter.Radius = 6.0; PredRingOuter.Thickness = 1.2; PredRingOuter.Filled = false; PredRingOuter.Color = Color3.fromRGB(255, 35, 35); PredRingOuter.Visible = false
+PredRingOuter.Radius = 6.0; PredRingOuter.Thickness = 1.2;
+PredRingOuter.Filled = false; PredRingOuter.Color = Color3.fromRGB(255, 35, 35); PredRingOuter.Visible = false
 local PredDotCenter = Drawing.new("Circle")
-PredDotCenter.Radius = 2.5; PredDotCenter.Thickness = 1; PredDotCenter.Filled = true; PredDotCenter.Color = Color3.fromRGB(255, 255, 255); PredDotCenter.Visible = false
+PredDotCenter.Radius = 2.5; PredDotCenter.Thickness = 1;
+PredDotCenter.Filled = true; PredDotCenter.Color = Color3.fromRGB(255, 255, 255); PredDotCenter.Visible = false
 local PredLine = Drawing.new("Line")
-PredLine.Thickness = 1.0; PredLine.Color = Color3.fromRGB(185, 0, 255); PredLine.Transparency = 0.65; PredLine.Visible = false
+PredLine.Thickness = 1.0;
+PredLine.Color = Color3.fromRGB(185, 0, 255); PredLine.Transparency = 0.65; PredLine.Visible = false
 
 -- Cache del cuchillo propio
 local cachedHasKnife = false
@@ -276,7 +280,7 @@ local function getAdvancedKnifePrediction(targetChar)
     if physicsData and physicsData.LastVelocity then
         local lastHorizVel = Vector3.new(physicsData.LastVelocity.X, 0, physicsData.LastVelocity.Z)
         local lastSpeed = lastHorizVel.Magnitude
-        
+    
         if exactSpeed > 1 and lastSpeed > 1 then
             local currentDir = horizontalVelocity.Unit
             local lastDir = lastHorizVel.Unit
@@ -352,11 +356,11 @@ RunService.Heartbeat:Connect(function()
                 else
                     local data = playerFysics[player]
                     local deltaTime = currentTime - data.LastTime
-                    
+            
                     if deltaTime > 0 then
                         local positionalVelocity = (currentPos - data.LastPos) / deltaTime
                         local realVelocity = Vector3.new(physicsVelocity.X, positionalVelocity.Y, physicsVelocity.Z)
-                        
+        
                         -- 🚨 DETECTOR DE EXTRAPOLACIÓN MATEMÁTICA (GHOSTING DE PING)
                         -- Si la velocidad en los 3 ejes es exactamente idéntica sin un solo cambio de flotante
                         if data.LastRawVelocity and (realVelocity - data.LastRawVelocity).Magnitude < 0.0001 then
@@ -366,7 +370,7 @@ RunService.Heartbeat:Connect(function()
                         end
                         
                         data.LastRawVelocity = realVelocity
-                        
+                    
                         -- Si lleva más de 20 frames moviéndose con velocidad matemáticamente idéntica, el internet de ese jugador murió
                         if data.ConsecutiveSameVelocity > 20 and realVelocity.Magnitude > 1 then
                             data.IsLaggingOut = true
@@ -429,13 +433,16 @@ RunService.RenderStepped:Connect(function()
                 PredDotCenter.Visible = true
                 PredRingOuter.Visible = true
             else
-                PredDotCenter.Visible = false; PredRingOuter.Visible = false; PredLine.Visible = false
+                PredDotCenter.Visible = false;
+                PredRingOuter.Visible = false; PredLine.Visible = false
             end
         else
-            PredDotCenter.Visible = false; PredRingOuter.Visible = false; PredLine.Visible = false
+            PredDotCenter.Visible = false;
+            PredRingOuter.Visible = false; PredLine.Visible = false
         end
     else
-        PredDotCenter.Visible = false; PredRingOuter.Visible = false; PredLine.Visible = false
+        PredDotCenter.Visible = false;
+        PredRingOuter.Visible = false; PredLine.Visible = false
         if activeTarget and activeTarget.Character then
             local hrp = activeTarget.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
@@ -451,8 +458,8 @@ MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
 MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado) MurderConfig.SilentAim = estado; saveConfig() end)
 MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado) MurderConfig.PrioritizeSheriff = estado; saveConfig() end)
 MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", function(estado) MurderConfig.WallCheck = estado; saveConfig() end)
-MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, function(valor) MurderConfig.HorizontalPred = valor / 1000; saveConfig() end)
-MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, function(valor) MurderConfig.VerticalPred = valor / 1000; saveConfig() end)
+MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, 1, function(valor) MurderConfig.HorizontalPred = valor / 1000; saveConfig() end)
+MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, 1, function(valor) MurderConfig.VerticalPred = valor / 1000; saveConfig() end)
 
 MurderTab:CreateSection("Visualizadores e Interfaz Inteligente")
 MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium (Círculo Hueco)", function(estado) MurderConfig.ShowPredCircle = estado; saveConfig() end)
@@ -460,7 +467,7 @@ MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Ase
 
 MurderTab:CreateSection("Personalización del Campo de Visión (FOV)")
 MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Mostrar Círculo de FOV", MurderConfig.FOVColor, function(estadoToggle) MurderConfig.ShowFOV = estadoToggle; saveConfig() end, function(colorSeleccionado) MurderConfig.FOVColor = colorSeleccionado; saveConfig() end)
-MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, function(valor) MurderConfig.FOVRadius = valor; saveConfig() end)
+MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, 1, function(valor) MurderConfig.FOVRadius = valor; saveConfig() end)
 
 -- Métodos de Hooking síncronos
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
