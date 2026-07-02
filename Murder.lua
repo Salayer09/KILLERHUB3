@@ -1,6 +1,6 @@
--- ============================================================================
+-- ===========================================================================
 -- 👻 KILLER HUB | MURDER SUITE V7.0 (ANTI-LAG & ADVANCED JUKE DEFIER)
--- ============================================================================
+-- ===========================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
 local Players = game:GetService("Players")
@@ -217,7 +217,7 @@ local function getClosestTargetToFOV()
 end
 
 -- ============================================================================
--- 🧠 MOTOR BALÍSTICO AVANZADO CALIBRADO (ANTI-FINTAS Y DETECTOR DE GHOSTING)
+-- 🧠 MOTOR BALÍSTICO AVANZADO MEJORADO (ANTI-FINTAS SUAVES Y AJUSTE DE RAMPAS)
 -- ============================================================================
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
@@ -233,7 +233,6 @@ local function getAdvancedKnifePrediction(targetChar)
     
     local physicsData = playerFysics[targetPlayer]
     
-    -- 🚨 DETECCIÓN ULTRA DE DESCONEXIÓN: Si el jugador se congeló/quedó laggeado, anular predicción
     if physicsData and physicsData.IsLaggingOut then
         return targetPosition, targetPosition
     end
@@ -261,7 +260,7 @@ local function getAdvancedKnifePrediction(targetChar)
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
     local exactSpeed = horizontalVelocity.Magnitude
 
-    -- Calibración WalkSpeed Máxima Estricta (16.715)
+    -- Calibración WalkSpeed Máxima Estricta
     local MAX_WALKSPEED = 16.715
     if exactSpeed > MAX_WALKSPEED then 
         horizontalVelocity = horizontalVelocity.Unit * MAX_WALKSPEED
@@ -271,7 +270,7 @@ local function getAdvancedKnifePrediction(targetChar)
         exactSpeed = horizontalVelocity.Magnitude
     end
 
-    -- 🧠 SISTEMA INTEGRADO DE COMPENSACIÓN DE DIRECCIÓN Y CAMBIOS DE VELOCIDAD
+    -- 🧠 SISTEMA DE COMPENSACIÓN DE DIRECCIÓN (ANTI-JUKE)
     local jukeFactor = 1.0
     if physicsData and physicsData.LastVelocity then
         local lastHorizVel = Vector3.new(physicsData.LastVelocity.X, 0, physicsData.LastVelocity.Z)
@@ -282,12 +281,10 @@ local function getAdvancedKnifePrediction(targetChar)
             local lastDir = lastHorizVel.Unit
             local dotProduct = currentDir:Dot(lastDir)
             
-            -- 1. Anti-Fintas por Dirección (Giro repentino)
             if dotProduct < 0.94 then
                 jukeFactor = math.clamp(dotProduct, 0.10, 1.0)
             end
             
-            -- 2. Anti-Fintas por Velocidad (Frenados bruscos en fintas complejas)
             if exactSpeed < lastSpeed * 0.85 then
                 local decelerationRatio = exactSpeed / lastSpeed
                 jukeFactor = jukeFactor * math.clamp(decelerationRatio, 0.05, 1.0)
@@ -295,28 +292,34 @@ local function getAdvancedKnifePrediction(targetChar)
         end
     end
 
+    -- 🔍 NUEVO: DETECTOR DE MOVIMIENTOS SUAVES / PASOS CORTOS
+    local smoothMovementFactor = 1.0
+    if exactSpeed < 13 then
+        smoothMovementFactor = math.clamp(exactSpeed / 14, 0.40, 1.0)
+    end
+
     local shortRangeBoost = distance < 20 and 1.15 or 1.0
-    local dynamicScale = (1.0 + (distance * 0.008)) * shortRangeBoost
+    local dynamicScale = (1.0 + (distance * 0.004)) * shortRangeBoost
     local maxElasticCap = math.clamp(distance * 0.38, 3.5, 13.5)
     
-    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 6.8) * travelTime * dynamicScale * jukeFactor
+    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 6.8) * travelTime * dynamicScale * jukeFactor * smoothMovementFactor
 
     if horizontalOffset.Magnitude > maxElasticCap then horizontalOffset = horizontalOffset.Unit * maxElasticCap end
 
-    -- Cálculo Vertical Estable (Rampas/Escaleras)
+    -- 🛠️ AJUSTE CALIBRADO PARA RAMPA Y ESCALERAS (EJE Y)
     local verticalOffset = Vector3.new(0, 0, 0)
     local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local absYVelocity = math.abs(smoothVelocity.Y)
 
     if isAir or absYVelocity > 0.05 then
         local verticalVelocity = math.clamp(smoothVelocity.Y, -18, 25)
-        local verticalDistanceScale = 1 / (1 + (distance * 0.016))
+        local verticalDistanceScale = 1 / (1 + (distance * 0.005))
         
         if isAir then
             verticalVelocity = verticalVelocity * (verticalVelocity < -1 and 0.40 or 0.70)
         else
-            if verticalVelocity > 0.05 then 
-                verticalVelocity = verticalVelocity * 1.65 
+            if verticalVelocity > 0.03 then 
+                verticalVelocity = verticalVelocity * 2.35 
             end
         end
         verticalOffset = Vector3.new(0, verticalVelocity * (MurderConfig.VerticalPred * 6.0) * travelTime * verticalDistanceScale, 0)
@@ -357,8 +360,6 @@ RunService.Heartbeat:Connect(function()
                         local positionalVelocity = (currentPos - data.LastPos) / deltaTime
                         local realVelocity = Vector3.new(physicsVelocity.X, positionalVelocity.Y, physicsVelocity.Z)
                         
-                        -- 🚨 DETECTOR DE EXTRAPOLACIÓN MATEMÁTICA (GHOSTING DE PING)
-                        -- Si la velocidad en los 3 ejes es exactamente idéntica sin un solo cambio de flotante
                         if data.LastRawVelocity and (realVelocity - data.LastRawVelocity).Magnitude < 0.0001 then
                             data.ConsecutiveSameVelocity = data.ConsecutiveSameVelocity + 1
                         else
@@ -367,15 +368,13 @@ RunService.Heartbeat:Connect(function()
                         
                         data.LastRawVelocity = realVelocity
                         
-                        -- Si lleva más de 20 frames moviéndose con velocidad matemáticamente idéntica, el internet de ese jugador murió
                         if data.ConsecutiveSameVelocity > 20 and realVelocity.Magnitude > 1 then
                             data.IsLaggingOut = true
-                            realVelocity = Vector3.new(0, 0, 0) -- Invalidar vector para congelar mira en su cuerpo real
+                            realVelocity = Vector3.new(0, 0, 0)
                         else
                             data.IsLaggingOut = false
                         end
                         
-                        -- Control de teletransporte / Resets de red
                         if positionalVelocity.Magnitude > 55 then 
                             realVelocity = Vector3.new(0, 0, 0) 
                         end
