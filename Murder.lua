@@ -1,6 +1,6 @@
--- ===========================================================================
--- 👻 KILLER HUB | MURDER SUITE V7.0 (ANTI-LAG & ADVANCED JUKE DEFIER) [NO AUTO-SAVE]
--- ===========================================================================
+-- ============================================================================
+-- 👻 KILLER HUB | MURDER SUITE V7.0 (ANTI-LAG & ADVANCED JUKE DEFIER)
+-- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
 local Players = game:GetService("Players")
@@ -27,6 +27,24 @@ local MurderConfig = {
 }
 
 local CONFIG_FILE = "KillerHub_MurderSuite.txt"
+
+local function saveConfig()
+    if writefile then
+        local data = {
+            SilentAim = MurderConfig.SilentAim,
+            HorizontalPred = MurderConfig.HorizontalPred,
+            VerticalPred = MurderConfig.VerticalPred,
+            WallCheck = MurderConfig.WallCheck,
+            PrioritizeSheriff = MurderConfig.PrioritizeSheriff,
+            ShowFOV = MurderConfig.ShowFOV,
+            FOVRadius = MurderConfig.FOVRadius,
+            ShowPredCircle = MurderConfig.ShowPredCircle,
+            SmartVisibility = MurderConfig.SmartVisibility,
+            FOVColor = {MurderConfig.FOVColor.R, MurderConfig.FOVColor.G, MurderConfig.FOVColor.B}
+        }
+        writefile(CONFIG_FILE, HttpService:JSONEncode(data))
+    end
+end
 
 local function loadConfig()
     if readfile and isfile and isfile(CONFIG_FILE) then
@@ -427,21 +445,21 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Interfaz Gráfica (SIN AUTO-GUARDADO)
+-- Interfaz Gráfica
 MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
-MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado) MurderConfig.SilentAim = estado end)
-MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado) MurderConfig.PrioritizeSheriff = estado end)
-MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", function(estado) MurderConfig.WallCheck = estado end)
-MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, function(valor) MurderConfig.HorizontalPred = valor / 1000 end, math.floor(MurderConfig.HorizontalPred * 1000))
-MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, function(valor) MurderConfig.VerticalPred = valor / 1000 end, math.floor(MurderConfig.VerticalPred * 1000))
+MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado) MurderConfig.SilentAim = estado; saveConfig() end)
+MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado) MurderConfig.PrioritizeSheriff = estado; saveConfig() end)
+MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", function(estado) MurderConfig.WallCheck = estado; saveConfig() end)
+MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, function(valor) MurderConfig.HorizontalPred = valor / 1000; saveConfig() end)
+MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, function(valor) MurderConfig.VerticalPred = valor / 1000; saveConfig() end)
 
 MurderTab:CreateSection("Visualizadores e Interfaz Inteligente")
-MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium (Círculo Hueco)", function(estado) MurderConfig.ShowPredCircle = estado end)
-MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Asesino)", function(estado) MurderConfig.SmartVisibility = estado end)
+MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium (Círculo Hueco)", function(estado) MurderConfig.ShowPredCircle = estado; saveConfig() end)
+MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Asesino)", function(estado) MurderConfig.SmartVisibility = estado; saveConfig() end)
 
 MurderTab:CreateSection("Personalización del Campo de Visión (FOV)")
-MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Mostrar Círculo de FOV", MurderConfig.FOVColor, function(estadoToggle) MurderConfig.ShowFOV = estadoToggle end, function(colorSeleccionado) MurderConfig.FOVColor = colorSeleccionado end)
-MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, function(valor) MurderConfig.FOVRadius = valor end, MurderConfig.FOVRadius)
+MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Mostrar Círculo de FOV", MurderConfig.FOVColor, function(estadoToggle) MurderConfig.ShowFOV = estadoToggle; saveConfig() end, function(colorSeleccionado) MurderConfig.FOVColor = colorSeleccionado; saveConfig() end)
+MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, function(valor) MurderConfig.FOVRadius = valor; saveConfig() end)
 
 -- Métodos de Hooking síncronos
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
