@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V7.0 (ANTI-LAG & ADVANCED JUKE DEFIER)
+-- 👻 KILLER HUB | MURDER SUITE V7.2 (SMART-WALL ENVIRONMENT & VELOCITY SCALER)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
@@ -217,7 +217,7 @@ local function getClosestTargetToFOV()
 end
 
 -- ============================================================================
--- 🧠 MOTOR BALÍSTICO AVANZADO MEJORADO (ANTI-FINTAS SUAVES Y AJUSTE DE RAMPAS)
+-- 🧠 MOTOR BALÍSTICO DINÁMICO (INTELLIGENT CLAMPING & VELOCITY SCALER)
 -- ============================================================================
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
@@ -248,7 +248,7 @@ local function getAdvancedKnifePrediction(targetChar)
 
     local smoothVelocity = Vector3.new(0, 0, 0)
     if physicsData then smoothVelocity = physicsData.SmoothedVelocity end
-    if smoothVelocity.Magnitude < 0.10 then return targetPosition, targetPosition end
+    if smoothVelocity.Magnitude < 0.15 then return targetPosition, targetPosition end
 
     local rawPing = 0.06
     if Stats and Stats:FindFirstChild("Network") and Stats.Network:FindFirstChild("ServerToClientPing") then
@@ -265,9 +265,6 @@ local function getAdvancedKnifePrediction(targetChar)
     if exactSpeed > MAX_WALKSPEED then 
         horizontalVelocity = horizontalVelocity.Unit * MAX_WALKSPEED
         exactSpeed = MAX_WALKSPEED
-    elseif exactSpeed < 2 then 
-        horizontalVelocity = horizontalVelocity * (exactSpeed / 2) 
-        exactSpeed = horizontalVelocity.Magnitude
     end
 
     -- 🧠 SISTEMA DE COMPENSACIÓN DE DIRECCIÓN (ANTI-JUKE)
@@ -292,40 +289,59 @@ local function getAdvancedKnifePrediction(targetChar)
         end
     end
 
-    -- 🔍 NUEVO: DETECTOR DE MOVIMIENTOS SUAVES / PASOS CORTOS
-    local smoothMovementFactor = 1.0
-    if exactSpeed < 13 then
-        smoothMovementFactor = math.clamp(exactSpeed / 14, 0.40, 1.0)
+    -- 🔍 📈 NUEVO: ESCALADO ADAPTATIVO DE VELOCIDAD EXPO (ANTI OVER-PRED)
+    -- Si el jugador camina lento o tartamudea, reduce la agresividad de la predicción automáticamente.
+    local velocityScale = math.clamp(exactSpeed / MAX_WALKSPEED, 0, 1)
+    if exactSpeed < 12 then
+        velocityScale = math.pow(velocityScale, 1.4) -- Curva exponencial para movimientos lentos
     end
 
     local shortRangeBoost = distance < 20 and 1.15 or 1.0
     local dynamicScale = (1.0 + (distance * 0.004)) * shortRangeBoost
     local maxElasticCap = math.clamp(distance * 0.38, 3.5, 13.5)
     
-    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 6.8) * travelTime * dynamicScale * jukeFactor * smoothMovementFactor
+    local horizontalOffset = horizontalVelocity * (MurderConfig.HorizontalPred * 6.8) * travelTime * dynamicScale * jukeFactor * velocityScale
 
     if horizontalOffset.Magnitude > maxElasticCap then horizontalOffset = horizontalOffset.Unit * maxElasticCap end
 
-    -- 🛠️ AJUSTE CALIBRADO PARA RAMPA Y ESCALERAS (EJE Y)
+    -- 🛠️ AJUSTE VERTICAL HÍBRIDO (SALTOS VS RAMPAS/ESCALERAS)
     local verticalOffset = Vector3.new(0, 0, 0)
     local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local absYVelocity = math.abs(smoothVelocity.Y)
 
-    if isAir or absYVelocity > 0.05 then
+    if isAir then
         local verticalVelocity = math.clamp(smoothVelocity.Y, -18, 25)
         local verticalDistanceScale = 1 / (1 + (distance * 0.005))
-        
-        if isAir then
-            verticalVelocity = verticalVelocity * (verticalVelocity < -1 and 0.40 or 0.70)
-        else
-            if verticalVelocity > 0.03 then 
-                verticalVelocity = verticalVelocity * 2.35 
-            end
-        end
+        verticalVelocity = verticalVelocity * (verticalVelocity < -1 and 0.40 or 0.70)
         verticalOffset = Vector3.new(0, verticalVelocity * (MurderConfig.VerticalPred * 6.0) * travelTime * verticalDistanceScale, 0)
+    elseif absYVelocity > 0.02 then
+        local verticalVelocity = smoothVelocity.Y
+        local rampCompensationFactor = 1.35
+        local sliderScale = (MurderConfig.VerticalPred / 0.040)
+        verticalOffset = Vector3.new(0, verticalVelocity * travelTime * sliderScale * rampCompensationFactor, 0)
     end
 
-    return targetPosition, (targetPosition + horizontalOffset + verticalOffset)
+    -- 🧱 🎯 NUEVO: INTELIGENCIA DE ENTORNO (ANTI WALL-CLIPPING EN INTERIORES)
+    -- Evita proyectar el objetivo más allá de paredes físicas reales si se mueve pegado a una.
+    local finalPredictedPos = targetPosition + horizontalOffset + verticalOffset
+    
+    local wallClampParams = RaycastParams.new()
+    wallClampParams.FilterType = Enum.RaycastFilterType.Exclude
+    wallClampParams.FilterDescendantsInstances = {targetChar, LocalPlayer.Character, Camera}
+    
+    -- Trazamos raycast desde la cadera actual hacia el punto futuro calculado
+    local wallRay = workspace:Raycast(targetPosition, finalPredictedPos - targetPosition, wallClampParams)
+    if wallRay and wallRay.Instance and wallRay.Instance.CanCollide then
+        -- Choca con estructura estática: Frenamos la predicción 0.4 studs antes del impacto del muro
+        local hitDistance = (wallRay.Position - targetPosition).Magnitude
+        if hitDistance > 0.5 then
+            finalPredictedPos = targetPosition + (finalPredictedPos - targetPosition).Unit * (hitDistance - 0.4)
+        else
+            finalPredictedPos = targetPosition -- Pegado al muro, anula offset extremo
+        end
+    end
+
+    return targetPosition, finalPredictedPos
 end
 
 -- ============================================================================
