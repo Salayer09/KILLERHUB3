@@ -70,7 +70,7 @@ end
 
 loadConfig()
 
-local MurderTab = KillerHub:CreateTab("Murder", "rbxassetid://10747372517")
+local MurderTab = KillerHub:CreateTab("Murder", "rbxassetid://14939026710")
 
 local playerFysics = {}
 local lastVisualPosition = Vector3.new(0, 0, 0)
