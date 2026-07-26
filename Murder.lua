@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V8.5 (ANTI-DEATH LAG & GARBAGE COLLECTOR)
+-- 👻 KILLER HUB | MURDER SUITE V8.6 (TARGET CACHE OPTIMIZED & CFRAME FIX)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 local Utils = KillerHub.Utils
@@ -31,7 +31,7 @@ local MurderConfig = {
     HitboxSize = 2,
     SeeHitbox = false,
     HitboxMaterial = "Plastic",
-    HitboxOpacity = 0 -- 0% es 100% Opaco (Sólido)
+    HitboxOpacity = 0 
 }
 
 local CONFIG_FILE = "KillerHub_MurderSuite.txt"
@@ -90,6 +90,8 @@ loadConfig()
 
 local MurderTab = KillerHub:CreateTab("Murder", "rbxassetid://14939026710")
 
+-- Variables de estado globales optimizadas
+local globalClosestTarget = nil
 local playerFysics = {}
 local lastVisualPosition = Vector3.new(0, 0, 0)
 local lastActualPosition = Vector3.new(0, 0, 0)
@@ -362,12 +364,10 @@ RunService.Heartbeat:Connect(function()
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             
-            -- ¡FILTRO CLAVE!: Si el jugador no existe, no tiene vida, o está muerto, reseteamos instantáneamente para evitar tirones.
             if hrp and hum and hum.Health > 0 then
                 if MurderConfig.HitboxActive and MurderConfig.SeeHitbox then
                     hrp.Size = Vector3.new(MurderConfig.HitboxSize, MurderConfig.HitboxSize, MurderConfig.HitboxSize)
                     
-                    -- Opacidad Correcta: 0% es Opaco, 100% es Invisible
                     local calculatedTransparency = MurderConfig.HitboxOpacity / 100
                     hrp.Transparency = math.clamp(calculatedTransparency, 0, 1)
                     
@@ -382,7 +382,6 @@ RunService.Heartbeat:Connect(function()
                     hrp.Material = Enum.Material.Plastic
                 end
 
-                -- Motor del Filtro Cinemático Avanzado
                 local currentPos = hrp.Position
                 local physicsVelocity = hrp.AssemblyLinearVelocity
                 
@@ -431,27 +430,28 @@ RunService.Heartbeat:Connect(function()
                     data.LastTime = currentTime
                 end
             else
-                -- Si el jugador muere o se reinicia, restauramos su HRP al vuelo para no congelar las físicas de Roblox
                 if hrp then
                     hrp.Size = Vector3.new(2, 2, 1)
                     hrp.Transparency = 1
                     hrp.Material = Enum.Material.Plastic
                 end
-                -- Limpieza de caché automática inmediata para la re-aparición
                 playerFysics[player] = nil
             end
         end
     end
 end)
 
--- Colector de Basura cuando un jugador abandona el servidor
 Players.PlayerRemoving:Connect(function(player)
     playerFysics[player] = nil
 end)
 
+-- Bucle de Renderizado optimizado con Caché único por Frame
 RunService.RenderStepped:Connect(function()
     local hasKnife = hasKnifeInInventory()
     local allowRender = not MurderConfig.SmartVisibility or hasKnife
+
+    -- ACTUALIZACIÓN DE CACHÉ GLOBAL: Evita que los hooks repitan el cálculo pesado
+    globalClosestTarget = getClosestTargetToFOV()
 
     if MurderConfig.ShowFOV and allowRender then
         local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -463,9 +463,8 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Visible = false
     end
 
-    local activeTarget = getClosestTargetToFOV()
-    if MurderConfig.ShowPredCircle and allowRender and activeTarget and activeTarget.Character then
-        local basePos, rawPredictedPos = getAdvancedKnifePrediction(activeTarget.Character)
+    if MurderConfig.ShowPredCircle and allowRender and globalClosestTarget and globalClosestTarget.Character then
+        local basePos, rawPredictedPos = getAdvancedKnifePrediction(globalClosestTarget.Character)
         if basePos and rawPredictedPos then
             lastActualPosition = lastActualPosition:Lerp(basePos, 0.28)
             lastVisualPosition = lastVisualPosition:Lerp(rawPredictedPos, 0.28)
@@ -493,8 +492,8 @@ RunService.RenderStepped:Connect(function()
         end
     else
         PredDotCenter.Visible = false; PredRingOuter.Visible = false; PredLine.Visible = false
-        if activeTarget and activeTarget.Character then
-            local hrp = activeTarget.Character:FindFirstChild("HumanoidRootPart")
+        if globalClosestTarget and globalClosestTarget.Character then
+            local hrp = globalClosestTarget.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
                 lastActualPosition = hrp.Position
                 lastVisualPosition = hrp.Position
@@ -514,7 +513,7 @@ MurderTab:CreateSlider("KnifeHorizSlider", "Horizontal prediction", 0, 300, func
 MurderTab:CreateSlider("KnifeVertSlider", "Vertical prediction", 0, 120, function(value) MurderConfig.VerticalPred = value / 1000; saveConfig() end)
 
 MurderTab:CreateSection("Stab Hitbox Modifier")
-MurderTab:CreateToggle("StabHitboxMaster", "Stab Hitbox", function(state) MurderConfig.HitboxActive = state; saveConfig() end)
+MurderTab:CreateToggle("StabHitboxMaster", "Stab Hitbox Status", function(state) MurderConfig.HitboxActive = state; saveConfig() end)
 MurderTab:CreateToggle("SeeHitboxActive", "See hitbox", function(state) MurderConfig.SeeHitbox = state; saveConfig() end)
 
 local debouncedSize = Utils.Debounce(function(value)
@@ -539,7 +538,7 @@ MurderTab:CreateSection("Field Of View (FOV)")
 MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Show FOV Circle", MurderConfig.FOVColor, function(stateToggle) MurderConfig.ShowFOV = stateToggle; saveConfig() end, function(selectedColor) MurderConfig.FOVColor = selectedColor; saveConfig() end)
 MurderTab:CreateSlider("FovRadiusMurder", "FOV Radius", 30, 600, function(value) MurderConfig.FOVRadius = value; saveConfig() end)
 
--- Hooks
+-- Hooks corregidos (Uso de Caché Global y corrección del tipo Vector3/CFrame)
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
 if ClientServices then
     local WeaponService = require(ClientServices:WaitForChild("WeaponService"))
@@ -547,22 +546,20 @@ if ClientServices then
     local oldGetMouseTargetCFrame = WeaponService.GetMouseTargetCFrame
 
     WeaponService.GetTargetPosition = function(self, ...)
-        if MurderConfig.SilentAim and MurderConfig.HitboxActive and hasKnifeInInventory() then
-            local targetPlayer = getClosestTargetToFOV()
-            if targetPlayer and targetPlayer.Character then
-                local _, predictedPos = getAdvancedKnifePrediction(targetPlayer.Character)
-                if predictedPos then return CFrame.new(predictedPos) end
+        if MurderConfig.SilentAim and hasKnifeInInventory() and globalClosestTarget and globalClosestTarget.Character then
+            local _, predictedPos = getAdvancedKnifePrediction(globalClosestTarget.Character)
+            if predictedPos then 
+                return predictedPos -- SOLUCIÓN: Retorna un Vector3 puro para evitar que el cuchillo se desvíe.
             end
         end
         return oldGetTargetPosition(self, ...)
     end
 
     WeaponService.GetMouseTargetCFrame = function(self, ...)
-        if MurderConfig.SilentAim and MurderConfig.HitboxActive and hasKnifeInInventory() then
-            local targetPlayer = getClosestTargetToFOV()
-            if targetPlayer and targetPlayer.Character then
-                local _, predictedPos = getAdvancedKnifePrediction(targetPlayer.Character)
-                if predictedPos then return CFrame.new(predictedPos) end
+        if MurderConfig.SilentAim and hasKnifeInInventory() and globalClosestTarget and globalClosestTarget.Character then
+            local _, predictedPos = getAdvancedKnifePrediction(globalClosestTarget.Character)
+            if predictedPos then 
+                return CFrame.new(predictedPos) -- SOLUCIÓN: Retorna un CFrame nativo completo.
             end
         end
         return oldGetMouseTargetCFrame(self, ...)
