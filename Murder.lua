@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V8.4 (MASTER TOGGLE & OPACITY INVERSION)
+-- 👻 KILLER HUB | MURDER SUITE V8.5 (ANTI-DEATH LAG & GARBAGE COLLECTOR)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 local Utils = KillerHub.Utils
@@ -27,11 +27,11 @@ local MurderConfig = {
     SmartVisibility = false,
 
     -- Hitbox Settings
-    HitboxActive = false, -- NUEVO: Interruptor maestro
+    HitboxActive = false, 
     HitboxSize = 2,
     SeeHitbox = false,
     HitboxMaterial = "Plastic",
-    HitboxOpacity = 0 -- 0% significa 100% opaco / sólido de inicio
+    HitboxOpacity = 0 -- 0% es 100% Opaco (Sólido)
 }
 
 local CONFIG_FILE = "KillerHub_MurderSuite.txt"
@@ -352,20 +352,22 @@ local function getAdvancedKnifePrediction(targetChar)
 end
 
 -- ============================================================================
--- 📡 HITBOX ENGINE & PHYSICS LOOP
+-- 📡 HITBOX ENGINE & OPTIMIZED PHYSICS LOOP (ANTI-LAG ON DEATH)
 -- ============================================================================
 RunService.Heartbeat:Connect(function()
     local currentTime = os.clock()
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if player ~= LocalPlayer then
+            local char = player.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
             
-            if hrp then
-                -- Evalúa si el sistema maestro Y el visualizador están encendidos
+            -- ¡FILTRO CLAVE!: Si el jugador no existe, no tiene vida, o está muerto, reseteamos instantáneamente para evitar tirones.
+            if hrp and hum and hum.Health > 0 then
                 if MurderConfig.HitboxActive and MurderConfig.SeeHitbox then
                     hrp.Size = Vector3.new(MurderConfig.HitboxSize, MurderConfig.HitboxSize, MurderConfig.HitboxSize)
                     
-                    -- Petición del usuario: 0% es 100% Opaco (0 Transparencia), 100% es 100% Invisible (1 Transparencia)
+                    -- Opacidad Correcta: 0% es Opaco, 100% es Invisible
                     local calculatedTransparency = MurderConfig.HitboxOpacity / 100
                     hrp.Transparency = math.clamp(calculatedTransparency, 0, 1)
                     
@@ -375,13 +377,12 @@ RunService.Heartbeat:Connect(function()
                     hrp.Material = successMat and parsedMaterial or Enum.Material.Plastic
                     hrp.CanCollide = false
                 else
-                    -- Si el maestro o el visualizador están apagados, se resetea a valores por defecto inmediatamente
                     hrp.Size = Vector3.new(2, 2, 1)
                     hrp.Transparency = 1
                     hrp.Material = Enum.Material.Plastic
                 end
 
-                -- Filtro de Física Avanzado
+                -- Motor del Filtro Cinemático Avanzado
                 local currentPos = hrp.Position
                 local physicsVelocity = hrp.AssemblyLinearVelocity
                 
@@ -429,9 +430,23 @@ RunService.Heartbeat:Connect(function()
                     data.LastPos = currentPos
                     data.LastTime = currentTime
                 end
+            else
+                -- Si el jugador muere o se reinicia, restauramos su HRP al vuelo para no congelar las físicas de Roblox
+                if hrp then
+                    hrp.Size = Vector3.new(2, 2, 1)
+                    hrp.Transparency = 1
+                    hrp.Material = Enum.Material.Plastic
+                end
+                -- Limpieza de caché automática inmediata para la re-aparición
+                playerFysics[player] = nil
             end
         end
     end
+end)
+
+-- Colector de Basura cuando un jugador abandona el servidor
+Players.PlayerRemoving:Connect(function(player)
+    playerFysics[player] = nil
 end)
 
 RunService.RenderStepped:Connect(function()
@@ -499,7 +514,6 @@ MurderTab:CreateSlider("KnifeHorizSlider", "Horizontal prediction", 0, 300, func
 MurderTab:CreateSlider("KnifeVertSlider", "Vertical prediction", 0, 120, function(value) MurderConfig.VerticalPred = value / 1000; saveConfig() end)
 
 MurderTab:CreateSection("Stab Hitbox Modifier")
--- NUEVO: Switch maestro para activar/desactivar el Stab Hitbox por completo
 MurderTab:CreateToggle("StabHitboxMaster", "Stab Hitbox", function(state) MurderConfig.HitboxActive = state; saveConfig() end)
 MurderTab:CreateToggle("SeeHitboxActive", "See hitbox", function(state) MurderConfig.SeeHitbox = state; saveConfig() end)
 
@@ -509,14 +523,12 @@ local debouncedSize = Utils.Debounce(function(value)
 end, 0.05)
 MurderTab:CreateSlider("HitboxSizeSlider", "Stab Hitbox Size", 2, 30, function(value) debouncedSize(value) end)
 
--- Petición del usuario: 0 es 100% Opaco y 100 es 100% Invisible
 local debouncedOpacity = Utils.Debounce(function(value)
     MurderConfig.HitboxOpacity = value
     saveConfig()
 end, 0.05)
 MurderTab:CreateSlider("HitboxOpacitySlider", "Hitbox opacity", 0, 100, function(value) debouncedOpacity(value) end)
 
--- Dropdown actualizado con 3 materiales más: SmoothPlastic, ForceField y DiamondPlate
 MurderTab:CreateDropdown("HitboxMaterialDropdown", "Hitbox Material", {"Plastic", "SmoothPlastic", "Metal", "DiamondPlate", "Glass", "Neon", "ForceField", "Wood"}, function(selected) MurderConfig.HitboxMaterial = selected; saveConfig() end)
 
 MurderTab:CreateSection("Visuals & Environment")
