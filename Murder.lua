@@ -1,7 +1,8 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V7.2 (SMART-WALL ENVIRONMENT & VELOCITY SCALER)
+-- 👻 KILLER HUB | MURDER SUITE V8.4 (MASTER TOGGLE & OPACITY INVERSION)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
+local Utils = KillerHub.Utils
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -23,7 +24,14 @@ local MurderConfig = {
     FOVColor = Color3.fromRGB(0, 255, 185),
     
     ShowPredCircle = false,
-    SmartVisibility = false
+    SmartVisibility = false,
+
+    -- Hitbox Settings
+    HitboxActive = false, -- NUEVO: Interruptor maestro
+    HitboxSize = 2,
+    SeeHitbox = false,
+    HitboxMaterial = "Plastic",
+    HitboxOpacity = 0 -- 0% significa 100% opaco / sólido de inicio
 }
 
 local CONFIG_FILE = "KillerHub_MurderSuite.txt"
@@ -40,6 +48,11 @@ local function saveConfig()
             FOVRadius = MurderConfig.FOVRadius,
             ShowPredCircle = MurderConfig.ShowPredCircle,
             SmartVisibility = MurderConfig.SmartVisibility,
+            HitboxActive = MurderConfig.HitboxActive,
+            HitboxSize = MurderConfig.HitboxSize,
+            SeeHitbox = MurderConfig.SeeHitbox,
+            HitboxMaterial = MurderConfig.HitboxMaterial,
+            HitboxOpacity = MurderConfig.HitboxOpacity,
             FOVColor = {MurderConfig.FOVColor.R, MurderConfig.FOVColor.G, MurderConfig.FOVColor.B}
         }
         writefile(CONFIG_FILE, HttpService:JSONEncode(data))
@@ -61,6 +74,11 @@ local function loadConfig()
             if decoded.FOVRadius ~= nil then MurderConfig.FOVRadius = decoded.FOVRadius end
             if decoded.ShowPredCircle ~= nil then MurderConfig.ShowPredCircle = decoded.ShowPredCircle end
             if decoded.SmartVisibility ~= nil then MurderConfig.SmartVisibility = decoded.SmartVisibility end
+            if decoded.HitboxActive ~= nil then MurderConfig.HitboxActive = decoded.HitboxActive end
+            if decoded.HitboxSize ~= nil then MurderConfig.HitboxSize = decoded.HitboxSize end
+            if decoded.SeeHitbox ~= nil then MurderConfig.SeeHitbox = decoded.SeeHitbox end
+            if decoded.HitboxMaterial ~= nil then MurderConfig.HitboxMaterial = decoded.HitboxMaterial end
+            if decoded.HitboxOpacity ~= nil then MurderConfig.HitboxOpacity = decoded.HitboxOpacity end
             if decoded.FOVColor ~= nil then
                 MurderConfig.FOVColor = Color3.new(decoded.FOVColor[1], decoded.FOVColor[2], decoded.FOVColor[3])
             end
@@ -79,7 +97,7 @@ local lastActualPosition = Vector3.new(0, 0, 0)
 local raycastParams = RaycastParams.new()
 raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
--- Visualizadores Drawing API (48 lados optimizado)
+-- Visual Drawing API
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1.5; FOVCircle.NumSides = 48; FOVCircle.Filled = false; FOVCircle.Visible = false 
 local PredRingOuter = Drawing.new("Circle")
@@ -89,7 +107,6 @@ PredDotCenter.Radius = 2.5; PredDotCenter.Thickness = 1; PredDotCenter.Filled = 
 local PredLine = Drawing.new("Line")
 PredLine.Thickness = 1.0; PredLine.Color = Color3.fromRGB(185, 0, 255); PredLine.Transparency = 0.65; PredLine.Visible = false
 
--- Cache del cuchillo propio
 local cachedHasKnife = false
 local lastKnifeCheck = 0
 
@@ -104,7 +121,6 @@ local function hasKnifeInInventory()
     return cachedHasKnife
 end
 
--- Función interna de escaneo rápido de arma
 local function checkPlayerHasGun(player)
     local char = player.Character
     if char and char:FindFirstChild("Gun") then return true end
@@ -124,7 +140,7 @@ local function isVisibleThroughWalls(targetChar)
 end
 
 -- ============================================================================
--- 🎯 SISTEMA DE MEMORIA Y FIJACIÓN DEL SHERIFF / HÉROE
+-- 🎯 SHERIFF DETECTION SYSTEM
 -- ============================================================================
 local CurrentSheriff = nil
 local lastSheriffScan = 0
@@ -157,7 +173,7 @@ local function updateSheriffTarget()
 end
 
 -- ============================================================================
--- 🧠 MOTOR DE SELECCIÓN INTELIGENTE CON OBJETIVO ASIGNADO
+-- 🧠 TARGET SELECTION
 -- ============================================================================
 local function getClosestTargetToFOV()
     if MurderConfig.SmartVisibility and not hasKnifeInInventory() then 
@@ -217,7 +233,7 @@ local function getClosestTargetToFOV()
 end
 
 -- ============================================================================
--- 🧠 MOTOR BALÍSTICO DINÁMICO (INTELLIGENT CLAMPING & VELOCITY SCALER)
+-- 🧠 KNIFE BALLISTIC PREDICTION MOTOR
 -- ============================================================================
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
@@ -260,14 +276,12 @@ local function getAdvancedKnifePrediction(targetChar)
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
     local exactSpeed = horizontalVelocity.Magnitude
 
-    -- Calibración WalkSpeed Máxima Estricta
     local MAX_WALKSPEED = 16.715
     if exactSpeed > MAX_WALKSPEED then 
         horizontalVelocity = horizontalVelocity.Unit * MAX_WALKSPEED
         exactSpeed = MAX_WALKSPEED
     end
 
-    -- 🧠 SISTEMA DE COMPENSACIÓN DE DIRECCIÓN (ANTI-JUKE)
     local jukeFactor = 1.0
     if physicsData and physicsData.LastVelocity then
         local lastHorizVel = Vector3.new(physicsData.LastVelocity.X, 0, physicsData.LastVelocity.Z)
@@ -289,11 +303,9 @@ local function getAdvancedKnifePrediction(targetChar)
         end
     end
 
-    -- 🔍 📈 NUEVO: ESCALADO ADAPTATIVO DE VELOCIDAD EXPO (ANTI OVER-PRED)
-    -- Si el jugador camina lento o tartamudea, reduce la agresividad de la predicción automáticamente.
     local velocityScale = math.clamp(exactSpeed / MAX_WALKSPEED, 0, 1)
     if exactSpeed < 12 then
-        velocityScale = math.pow(velocityScale, 1.4) -- Curva exponencial para movimientos lentos
+        velocityScale = math.pow(velocityScale, 1.4)
     end
 
     local shortRangeBoost = distance < 20 and 1.15 or 1.0
@@ -304,7 +316,6 @@ local function getAdvancedKnifePrediction(targetChar)
 
     if horizontalOffset.Magnitude > maxElasticCap then horizontalOffset = horizontalOffset.Unit * maxElasticCap end
 
-    -- 🛠️ AJUSTE VERTICAL HÍBRIDO (SALTOS VS RAMPAS/ESCALERAS)
     local verticalOffset = Vector3.new(0, 0, 0)
     local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local absYVelocity = math.abs(smoothVelocity.Y)
@@ -321,23 +332,19 @@ local function getAdvancedKnifePrediction(targetChar)
         verticalOffset = Vector3.new(0, verticalVelocity * travelTime * sliderScale * rampCompensationFactor, 0)
     end
 
-    -- 🧱 🎯 NUEVO: INTELIGENCIA DE ENTORNO (ANTI WALL-CLIPPING EN INTERIORES)
-    -- Evita proyectar el objetivo más allá de paredes físicas reales si se mueve pegado a una.
     local finalPredictedPos = targetPosition + horizontalOffset + verticalOffset
     
     local wallClampParams = RaycastParams.new()
     wallClampParams.FilterType = Enum.RaycastFilterType.Exclude
     wallClampParams.FilterDescendantsInstances = {targetChar, LocalPlayer.Character, Camera}
     
-    -- Trazamos raycast desde la cadera actual hacia el punto futuro calculado
     local wallRay = workspace:Raycast(targetPosition, finalPredictedPos - targetPosition, wallClampParams)
     if wallRay and wallRay.Instance and wallRay.Instance.CanCollide then
-        -- Choca con estructura estática: Frenamos la predicción 0.4 studs antes del impacto del muro
         local hitDistance = (wallRay.Position - targetPosition).Magnitude
         if hitDistance > 0.5 then
             finalPredictedPos = targetPosition + (finalPredictedPos - targetPosition).Unit * (hitDistance - 0.4)
         else
-            finalPredictedPos = targetPosition -- Pegado al muro, anula offset extremo
+            finalPredictedPos = targetPosition
         end
     end
 
@@ -345,16 +352,36 @@ local function getAdvancedKnifePrediction(targetChar)
 end
 
 -- ============================================================================
--- 📡 FILTRADO FÍSICO AVANZADO (RESOLUCIÓN DE GHOSTING / CONEXIÓN)
+-- 📡 HITBOX ENGINE & PHYSICS LOOP
 -- ============================================================================
 RunService.Heartbeat:Connect(function()
-    if MurderConfig.SmartVisibility and not hasKnifeInInventory() then return end
-
     local currentTime = os.clock()
     for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character then
+        if player ~= LocalPlayer and player.Character then
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            
             if hrp then
+                -- Evalúa si el sistema maestro Y el visualizador están encendidos
+                if MurderConfig.HitboxActive and MurderConfig.SeeHitbox then
+                    hrp.Size = Vector3.new(MurderConfig.HitboxSize, MurderConfig.HitboxSize, MurderConfig.HitboxSize)
+                    
+                    -- Petición del usuario: 0% es 100% Opaco (0 Transparencia), 100% es 100% Invisible (1 Transparencia)
+                    local calculatedTransparency = MurderConfig.HitboxOpacity / 100
+                    hrp.Transparency = math.clamp(calculatedTransparency, 0, 1)
+                    
+                    local successMat, parsedMaterial = pcall(function()
+                        return Enum.Material[MurderConfig.HitboxMaterial]
+                    end)
+                    hrp.Material = successMat and parsedMaterial or Enum.Material.Plastic
+                    hrp.CanCollide = false
+                else
+                    -- Si el maestro o el visualizador están apagados, se resetea a valores por defecto inmediatamente
+                    hrp.Size = Vector3.new(2, 2, 1)
+                    hrp.Transparency = 1
+                    hrp.Material = Enum.Material.Plastic
+                end
+
+                -- Filtro de Física Avanzado
                 local currentPos = hrp.Position
                 local physicsVelocity = hrp.AssemblyLinearVelocity
                 
@@ -461,23 +488,46 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Interfaz Gráfica
-MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
-MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado) MurderConfig.SilentAim = estado; saveConfig() end)
-MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado) MurderConfig.PrioritizeSheriff = estado; saveConfig() end)
-MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", function(estado) MurderConfig.WallCheck = estado; saveConfig() end)
-MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, function(valor) MurderConfig.HorizontalPred = valor / 1000; saveConfig() end)
-MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, function(valor) MurderConfig.VerticalPred = valor / 1000; saveConfig() end)
+-- ============================================================================
+-- 📊 Clean User Interface
+-- ============================================================================
+MurderTab:CreateSection("Knife Combats")
+MurderTab:CreateToggle("KnifeAimActive", "Knife Thrown aim", function(state) MurderConfig.SilentAim = state; saveConfig() end)
+MurderTab:CreateToggle("PrioritizeSheriffActive", "Prioritize Sheriff", function(state) MurderConfig.PrioritizeSheriff = state; saveConfig() end)
+MurderTab:CreateToggle("KnifeWallCheckActive", "Wall Check", function(state) MurderConfig.WallCheck = state; saveConfig() end)
+MurderTab:CreateSlider("KnifeHorizSlider", "Horizontal prediction", 0, 300, function(value) MurderConfig.HorizontalPred = value / 1000; saveConfig() end)
+MurderTab:CreateSlider("KnifeVertSlider", "Vertical prediction", 0, 120, function(value) MurderConfig.VerticalPred = value / 1000; saveConfig() end)
 
-MurderTab:CreateSection("Visualizadores e Interfaz Inteligente")
-MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium (Círculo Hueco)", function(estado) MurderConfig.ShowPredCircle = estado; saveConfig() end)
-MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Asesino)", function(estado) MurderConfig.SmartVisibility = estado; saveConfig() end)
+MurderTab:CreateSection("Stab Hitbox Modifier")
+-- NUEVO: Switch maestro para activar/desactivar el Stab Hitbox por completo
+MurderTab:CreateToggle("StabHitboxMaster", "Stab Hitbox", function(state) MurderConfig.HitboxActive = state; saveConfig() end)
+MurderTab:CreateToggle("SeeHitboxActive", "See hitbox", function(state) MurderConfig.SeeHitbox = state; saveConfig() end)
 
-MurderTab:CreateSection("Personalización del Campo de Visión (FOV)")
-MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Mostrar Círculo de FOV", MurderConfig.FOVColor, function(estadoToggle) MurderConfig.ShowFOV = estadoToggle; saveConfig() end, function(colorSeleccionado) MurderConfig.FOVColor = colorSeleccionado; saveConfig() end)
-MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, function(valor) MurderConfig.FOVRadius = valor; saveConfig() end)
+local debouncedSize = Utils.Debounce(function(value)
+    MurderConfig.HitboxSize = value
+    saveConfig()
+end, 0.05)
+MurderTab:CreateSlider("HitboxSizeSlider", "Stab Hitbox Size", 2, 30, function(value) debouncedSize(value) end)
 
--- Métodos de Hooking síncronos
+-- Petición del usuario: 0 es 100% Opaco y 100 es 100% Invisible
+local debouncedOpacity = Utils.Debounce(function(value)
+    MurderConfig.HitboxOpacity = value
+    saveConfig()
+end, 0.05)
+MurderTab:CreateSlider("HitboxOpacitySlider", "Hitbox opacity", 0, 100, function(value) debouncedOpacity(value) end)
+
+-- Dropdown actualizado con 3 materiales más: SmoothPlastic, ForceField y DiamondPlate
+MurderTab:CreateDropdown("HitboxMaterialDropdown", "Hitbox Material", {"Plastic", "SmoothPlastic", "Metal", "DiamondPlate", "Glass", "Neon", "ForceField", "Wood"}, function(selected) MurderConfig.HitboxMaterial = selected; saveConfig() end)
+
+MurderTab:CreateSection("Visuals & Environment")
+MurderTab:CreateToggle("ShowKnifePredictionVisual", "See prediction", function(state) MurderConfig.ShowPredCircle = state; saveConfig() end)
+MurderTab:CreateToggle("SmartHandVisibility", "Smart Visibility", function(state) MurderConfig.SmartVisibility = state; saveConfig() end)
+
+MurderTab:CreateSection("Field Of View (FOV)")
+MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Show FOV Circle", MurderConfig.FOVColor, function(stateToggle) MurderConfig.ShowFOV = stateToggle; saveConfig() end, function(selectedColor) MurderConfig.FOVColor = selectedColor; saveConfig() end)
+MurderTab:CreateSlider("FovRadiusMurder", "FOV Radius", 30, 600, function(value) MurderConfig.FOVRadius = value; saveConfig() end)
+
+-- Hooks
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
 if ClientServices then
     local WeaponService = require(ClientServices:WaitForChild("WeaponService"))
@@ -485,7 +535,7 @@ if ClientServices then
     local oldGetMouseTargetCFrame = WeaponService.GetMouseTargetCFrame
 
     WeaponService.GetTargetPosition = function(self, ...)
-        if MurderConfig.SilentAim and hasKnifeInInventory() then
+        if MurderConfig.SilentAim and MurderConfig.HitboxActive and hasKnifeInInventory() then
             local targetPlayer = getClosestTargetToFOV()
             if targetPlayer and targetPlayer.Character then
                 local _, predictedPos = getAdvancedKnifePrediction(targetPlayer.Character)
@@ -496,7 +546,7 @@ if ClientServices then
     end
 
     WeaponService.GetMouseTargetCFrame = function(self, ...)
-        if MurderConfig.SilentAim and hasKnifeInInventory() then
+        if MurderConfig.SilentAim and MurderConfig.HitboxActive and hasKnifeInInventory() then
             local targetPlayer = getClosestTargetToFOV()
             if targetPlayer and targetPlayer.Character then
                 local _, predictedPos = getAdvancedKnifePrediction(targetPlayer.Character)
