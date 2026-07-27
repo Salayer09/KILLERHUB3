@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V7.2
+-- 👾 KILLER HUB | MURDER SUITE V8.2 (TRANSPARENCY FIX & OPTIMIZED)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
@@ -23,26 +23,53 @@ local MurderConfig = {
     FOVColor = Color3.fromRGB(0, 255, 185),
     
     ShowPredCircle = false,
-    SmartVisibility = false
+    SmartVisibility = false,
+
+    -- Hitbox Master & Customization Settings
+    HitboxEnabled = false,
+    HitboxSize = 2,
+    SeeHitbox = false,
+    HitboxTransparency = 0.8, -- 80% transparente por defecto (0 = opaco, 1 = invisible)
+    HitboxColor = Color3.fromRGB(255, 0, 100),
+    HitboxMaterial = "Plastic"
 }
 
 local CONFIG_FILE = "KillerHub_MurderSuite.txt"
 
+-- Cache local para optimizar asignación de material en bucles
+local cachedMaterialEnum = Enum.Material.Plastic
+
+local function updateCachedMaterial(matName)
+    local success, parsed = pcall(function()
+        return Enum.Material[matName]
+    end)
+    cachedMaterialEnum = success and parsed or Enum.Material.Plastic
+end
+
 local function saveConfig()
     if writefile then
-        local data = {
-            SilentAim = MurderConfig.SilentAim,
-            HorizontalPred = MurderConfig.HorizontalPred,
-            VerticalPred = MurderConfig.VerticalPred,
-            WallCheck = MurderConfig.WallCheck,
-            PrioritizeSheriff = MurderConfig.PrioritizeSheriff,
-            ShowFOV = MurderConfig.ShowFOV,
-            FOVRadius = MurderConfig.FOVRadius,
-            ShowPredCircle = MurderConfig.ShowPredCircle,
-            SmartVisibility = MurderConfig.SmartVisibility,
-            FOVColor = {MurderConfig.FOVColor.R, MurderConfig.FOVColor.G, MurderConfig.FOVColor.B}
-        }
-        writefile(CONFIG_FILE, HttpService:JSONEncode(data))
+        pcall(function()
+            local data = {
+                SilentAim = MurderConfig.SilentAim,
+                HorizontalPred = MurderConfig.HorizontalPred,
+                VerticalPred = MurderConfig.VerticalPred,
+                WallCheck = MurderConfig.WallCheck,
+                PrioritizeSheriff = MurderConfig.PrioritizeSheriff,
+                ShowFOV = MurderConfig.ShowFOV,
+                FOVRadius = MurderConfig.FOVRadius,
+                ShowPredCircle = MurderConfig.ShowPredCircle,
+                SmartVisibility = MurderConfig.SmartVisibility,
+                FOVColor = {MurderConfig.FOVColor.R, MurderConfig.FOVColor.G, MurderConfig.FOVColor.B},
+                
+                HitboxEnabled = MurderConfig.HitboxEnabled,
+                HitboxSize = MurderConfig.HitboxSize,
+                SeeHitbox = MurderConfig.SeeHitbox,
+                HitboxTransparency = MurderConfig.HitboxTransparency,
+                HitboxColor = {MurderConfig.HitboxColor.R, MurderConfig.HitboxColor.G, MurderConfig.HitboxColor.B},
+                HitboxMaterial = MurderConfig.HitboxMaterial
+            }
+            writefile(CONFIG_FILE, HttpService:JSONEncode(data))
+        end)
     end
 end
 
@@ -61,8 +88,21 @@ local function loadConfig()
             if decoded.FOVRadius ~= nil then MurderConfig.FOVRadius = decoded.FOVRadius end
             if decoded.ShowPredCircle ~= nil then MurderConfig.ShowPredCircle = decoded.ShowPredCircle end
             if decoded.SmartVisibility ~= nil then MurderConfig.SmartVisibility = decoded.SmartVisibility end
+            
+            if decoded.HitboxEnabled ~= nil then MurderConfig.HitboxEnabled = decoded.HitboxEnabled end
+            if decoded.HitboxSize ~= nil then MurderConfig.HitboxSize = decoded.HitboxSize end
+            if decoded.SeeHitbox ~= nil then MurderConfig.SeeHitbox = decoded.SeeHitbox end
+            if decoded.HitboxTransparency ~= nil then MurderConfig.HitboxTransparency = decoded.HitboxTransparency end
+            if decoded.HitboxMaterial ~= nil then 
+                MurderConfig.HitboxMaterial = decoded.HitboxMaterial 
+                updateCachedMaterial(decoded.HitboxMaterial)
+            end
+
             if decoded.FOVColor ~= nil then
                 MurderConfig.FOVColor = Color3.new(decoded.FOVColor[1], decoded.FOVColor[2], decoded.FOVColor[3])
+            end
+            if decoded.HitboxColor ~= nil then
+                MurderConfig.HitboxColor = Color3.new(decoded.HitboxColor[1], decoded.HitboxColor[2], decoded.HitboxColor[3])
             end
         end
     end
@@ -79,7 +119,7 @@ local lastActualPosition = Vector3.new(0, 0, 0)
 local raycastParams = RaycastParams.new()
 raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
--- Drawing Visualizers
+-- Visual Drawing API
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1.5; FOVCircle.NumSides = 48; FOVCircle.Filled = false; FOVCircle.Visible = false 
 local PredRingOuter = Drawing.new("Circle")
@@ -89,7 +129,6 @@ PredDotCenter.Radius = 2.5; PredDotCenter.Thickness = 1; PredDotCenter.Filled = 
 local PredLine = Drawing.new("Line")
 PredLine.Thickness = 1.0; PredLine.Color = Color3.fromRGB(185, 0, 255); PredLine.Transparency = 0.65; PredLine.Visible = false
 
--- Local Knife Cache
 local cachedHasKnife = false
 local lastKnifeCheck = 0
 
@@ -104,7 +143,6 @@ local function hasKnifeInInventory()
     return cachedHasKnife
 end
 
--- Fast Gun Check
 local function checkPlayerHasGun(player)
     local char = player.Character
     if char and char:FindFirstChild("Gun") then return true end
@@ -123,7 +161,9 @@ local function isVisibleThroughWalls(targetChar)
     return not (raycastResult and raycastResult.Instance and raycastResult.Instance.CanCollide)
 end
 
--- Target Lock Engine
+-- ============================================================================
+-- 🚨 SHERIFF DETECTION SYSTEM
+-- ============================================================================
 local CurrentSheriff = nil
 local lastSheriffScan = 0
 
@@ -154,7 +194,9 @@ local function updateSheriffTarget()
     end
 end
 
--- Target Selection Engine
+-- ============================================================================
+-- 🧠 TARGET SELECTION
+-- ============================================================================
 local function getClosestTargetToFOV()
     if MurderConfig.SmartVisibility and not hasKnifeInInventory() then 
         return nil 
@@ -212,7 +254,9 @@ local function getClosestTargetToFOV()
     return closestInnocent
 end
 
--- Prediction Engine
+-- ============================================================================
+-- 🧠 KNIFE BALLISTIC PREDICTION MOTOR
+-- ============================================================================
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
     local hrp = targetChar:FindFirstChild("HumanoidRootPart")
@@ -329,15 +373,39 @@ local function getAdvancedKnifePrediction(targetChar)
     return targetPosition, finalPredictedPos
 end
 
--- Physics Loop
+-- ============================================================================
+-- 🔩 HITBOX ENGINE & PHYSICS LOOP
+-- ============================================================================
 RunService.Heartbeat:Connect(function()
-    if MurderConfig.SmartVisibility and not hasKnifeInInventory() then return end
-
     local currentTime = os.clock()
     for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character then
+        if player ~= LocalPlayer and player.Character then
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
+            local head = player.Character:FindFirstChild("Head")
+            
+            -- Dynamic Hitbox Expander & Visualizer
+            if hrp and head then
+                if MurderConfig.HitboxEnabled then
+                    local currentSize = MurderConfig.HitboxSize
+                    hrp.Size = Vector3.new(currentSize, currentSize, currentSize)
+                    hrp.CanCollide = false
+                    
+                    if MurderConfig.SeeHitbox then
+                        hrp.Transparency = MurderConfig.HitboxTransparency
+                        hrp.Color = MurderConfig.HitboxColor
+                        hrp.Material = cachedMaterialEnum
+                    else
+                        hrp.Transparency = 1
+                        hrp.Material = Enum.Material.Plastic
+                    end
+                else
+                    -- Master Switch APAGADO: Restablecer todo a default
+                    hrp.Size = Vector3.new(2, 2, 1)
+                    hrp.Transparency = 1
+                    hrp.Material = Enum.Material.Plastic
+                end
+
+                -- Physics Filter
                 local currentPos = hrp.Position
                 local physicsVelocity = hrp.AssemblyLinearVelocity
                 
@@ -390,7 +458,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Render Loop
 RunService.RenderStepped:Connect(function()
     local hasKnife = hasKnifeInInventory()
     local allowRender = not MurderConfig.SmartVisibility or hasKnife
@@ -445,23 +512,48 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- UI Setup
-MurderTab:CreateSection("Knife Settings")
-MurderTab:CreateToggle("KnifeSilentActive", "Knife Thrown Aim", function(state) MurderConfig.SilentAim = state; saveConfig() end)
+-- ============================================================================
+-- 🎨 CLEAN USER INTERFACE
+-- ============================================================================
+MurderTab:CreateSection("Knife Combats")
+MurderTab:CreateToggle("KnifeAimActive", "Knife Thrown aim", function(state) MurderConfig.SilentAim = state; saveConfig() end)
 MurderTab:CreateToggle("PrioritizeSheriffActive", "Prioritize Sheriff", function(state) MurderConfig.PrioritizeSheriff = state; saveConfig() end)
 MurderTab:CreateToggle("KnifeWallCheckActive", "Wall Check", function(state) MurderConfig.WallCheck = state; saveConfig() end)
-MurderTab:CreateSlider("KnifeHorizSlider", "Horizontal Prediction", 0, 300, function(val) MurderConfig.HorizontalPred = val / 1000; saveConfig() end)
-MurderTab:CreateSlider("KnifeVertSlider", "Vertical Prediction", 0, 120, function(val) MurderConfig.VerticalPred = val / 1000; saveConfig() end)
+MurderTab:CreateSlider("KnifeHorizSlider", "Horizontal prediction", 0, 300, function(value) MurderConfig.HorizontalPred = value / 1000; saveConfig() end)
+MurderTab:CreateSlider("KnifeVertSlider", "Vertical prediction", 0, 120, function(value) MurderConfig.VerticalPred = value / 1000; saveConfig() end)
 
-MurderTab:CreateSection("Visuals")
-MurderTab:CreateToggle("ShowKnifePredictionVisual", "See Prediction", function(state) MurderConfig.ShowPredCircle = state; saveConfig() end)
-MurderTab:CreateToggle("SmartHandVisibility", "Murderer Only", function(state) MurderConfig.SmartVisibility = state; saveConfig() end)
+MurderTab:CreateSection("Stab Hitbox Modifier")
+MurderTab:CreateToggle("IncreaseHitboxMaster", "Increase Hitbox", function(state) MurderConfig.HitboxEnabled = state; saveConfig() end)
+MurderTab:CreateToggle("SeeHitboxActive", "See hitbox", function(state) MurderConfig.SeeHitbox = state; saveConfig() end)
+MurderTab:CreateSlider("HitboxSizeSlider", "Stab Hitbox Size", 2, 15, function(value) MurderConfig.HitboxSize = value; saveConfig() end)
 
-MurderTab:CreateSection("FOV Settings")
-MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Show FOV", MurderConfig.FOVColor, function(toggleState) MurderConfig.ShowFOV = toggleState; saveConfig() end, function(selectedColor) MurderConfig.FOVColor = selectedColor; saveConfig() end)
-MurderTab:CreateSlider("FovRadiusMurder", "FOV Size", 30, 600, function(val) MurderConfig.FOVRadius = val; saveConfig() end)
+-- Transparencia de 0% (opaco) a 100% (invisible) - Defecto 80%
+local transSlider = MurderTab:CreateSlider("HitboxTransparencySlider", "Hitbox Transparency (%)", 0, 100, function(value) 
+    MurderConfig.HitboxTransparency = value / 100
+    saveConfig() 
+end)
+transSlider:Set(math.floor(MurderConfig.HitboxTransparency * 100))
 
--- Method Hooking
+MurderTab:CreateColorPicker("HitboxColorPicker", "Hitbox Color", MurderConfig.HitboxColor, function(selectedColor) 
+    MurderConfig.HitboxColor = selectedColor
+    saveConfig() 
+end)
+
+MurderTab:CreateDropdown("HitboxMaterialDropdown", "Hitbox Material", {"Plastic", "Metal", "Glass", "Neon", "Wood"}, function(selected) 
+    MurderConfig.HitboxMaterial = selected
+    updateCachedMaterial(selected)
+    saveConfig() 
+end)
+
+MurderTab:CreateSection("Visuals & Environment")
+MurderTab:CreateToggle("ShowKnifePredictionVisual", "See prediction", function(state) MurderConfig.ShowPredCircle = state; saveConfig() end)
+MurderTab:CreateToggle("SmartHandVisibility", "Smart Visibility", function(state) MurderConfig.SmartVisibility = state; saveConfig() end)
+
+MurderTab:CreateSection("Field Of View (FOV)")
+MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Show FOV Circle", MurderConfig.FOVColor, function(stateToggle) MurderConfig.ShowFOV = stateToggle; saveConfig() end, function(selectedColor) MurderConfig.FOVColor = selectedColor; saveConfig() end)
+MurderTab:CreateSlider("FovRadiusMurder", "FOV Radius", 30, 600, function(value) MurderConfig.FOVRadius = value; saveConfig() end)
+
+-- Hooks
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
 if ClientServices then
     local WeaponService = require(ClientServices:WaitForChild("WeaponService"))
