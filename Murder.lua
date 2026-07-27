@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👻 KILLER HUB | MURDER SUITE V7.2 (SMART-WALL ENVIRONMENT & VELOCITY SCALER)
+-- 👻 KILLER HUB | MURDER SUITE V7.2
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
@@ -79,7 +79,7 @@ local lastActualPosition = Vector3.new(0, 0, 0)
 local raycastParams = RaycastParams.new()
 raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
--- Visualizadores Drawing API (48 lados optimizado)
+-- Drawing Visualizers
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1.5; FOVCircle.NumSides = 48; FOVCircle.Filled = false; FOVCircle.Visible = false 
 local PredRingOuter = Drawing.new("Circle")
@@ -89,7 +89,7 @@ PredDotCenter.Radius = 2.5; PredDotCenter.Thickness = 1; PredDotCenter.Filled = 
 local PredLine = Drawing.new("Line")
 PredLine.Thickness = 1.0; PredLine.Color = Color3.fromRGB(185, 0, 255); PredLine.Transparency = 0.65; PredLine.Visible = false
 
--- Cache del cuchillo propio
+-- Local Knife Cache
 local cachedHasKnife = false
 local lastKnifeCheck = 0
 
@@ -104,7 +104,7 @@ local function hasKnifeInInventory()
     return cachedHasKnife
 end
 
--- Función interna de escaneo rápido de arma
+-- Fast Gun Check
 local function checkPlayerHasGun(player)
     local char = player.Character
     if char and char:FindFirstChild("Gun") then return true end
@@ -123,9 +123,7 @@ local function isVisibleThroughWalls(targetChar)
     return not (raycastResult and raycastResult.Instance and raycastResult.Instance.CanCollide)
 end
 
--- ============================================================================
--- 🎯 SISTEMA DE MEMORIA Y FIJACIÓN DEL SHERIFF / HÉROE
--- ============================================================================
+-- Target Lock Engine
 local CurrentSheriff = nil
 local lastSheriffScan = 0
 
@@ -156,9 +154,7 @@ local function updateSheriffTarget()
     end
 end
 
--- ============================================================================
--- 🧠 MOTOR DE SELECCIÓN INTELIGENTE CON OBJETIVO ASIGNADO
--- ============================================================================
+-- Target Selection Engine
 local function getClosestTargetToFOV()
     if MurderConfig.SmartVisibility and not hasKnifeInInventory() then 
         return nil 
@@ -216,9 +212,7 @@ local function getClosestTargetToFOV()
     return closestInnocent
 end
 
--- ============================================================================
--- 🧠 MOTOR BALÍSTICO DINÁMICO (INTELLIGENT CLAMPING & VELOCITY SCALER)
--- ============================================================================
+-- Prediction Engine
 local function getAdvancedKnifePrediction(targetChar)
     if not targetChar then return nil, nil end
     local hrp = targetChar:FindFirstChild("HumanoidRootPart")
@@ -260,14 +254,12 @@ local function getAdvancedKnifePrediction(targetChar)
     local horizontalVelocity = Vector3.new(smoothVelocity.X, 0, smoothVelocity.Z)
     local exactSpeed = horizontalVelocity.Magnitude
 
-    -- Calibración WalkSpeed Máxima Estricta
     local MAX_WALKSPEED = 16.715
     if exactSpeed > MAX_WALKSPEED then 
         horizontalVelocity = horizontalVelocity.Unit * MAX_WALKSPEED
         exactSpeed = MAX_WALKSPEED
     end
 
-    -- 🧠 SISTEMA DE COMPENSACIÓN DE DIRECCIÓN (ANTI-JUKE)
     local jukeFactor = 1.0
     if physicsData and physicsData.LastVelocity then
         local lastHorizVel = Vector3.new(physicsData.LastVelocity.X, 0, physicsData.LastVelocity.Z)
@@ -289,11 +281,9 @@ local function getAdvancedKnifePrediction(targetChar)
         end
     end
 
-    -- 🔍 📈 NUEVO: ESCALADO ADAPTATIVO DE VELOCIDAD EXPO (ANTI OVER-PRED)
-    -- Si el jugador camina lento o tartamudea, reduce la agresividad de la predicción automáticamente.
     local velocityScale = math.clamp(exactSpeed / MAX_WALKSPEED, 0, 1)
     if exactSpeed < 12 then
-        velocityScale = math.pow(velocityScale, 1.4) -- Curva exponencial para movimientos lentos
+        velocityScale = math.pow(velocityScale, 1.4)
     end
 
     local shortRangeBoost = distance < 20 and 1.15 or 1.0
@@ -304,7 +294,6 @@ local function getAdvancedKnifePrediction(targetChar)
 
     if horizontalOffset.Magnitude > maxElasticCap then horizontalOffset = horizontalOffset.Unit * maxElasticCap end
 
-    -- 🛠️ AJUSTE VERTICAL HÍBRIDO (SALTOS VS RAMPAS/ESCALERAS)
     local verticalOffset = Vector3.new(0, 0, 0)
     local isAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local absYVelocity = math.abs(smoothVelocity.Y)
@@ -321,32 +310,26 @@ local function getAdvancedKnifePrediction(targetChar)
         verticalOffset = Vector3.new(0, verticalVelocity * travelTime * sliderScale * rampCompensationFactor, 0)
     end
 
-    -- 🧱 🎯 NUEVO: INTELIGENCIA DE ENTORNO (ANTI WALL-CLIPPING EN INTERIORES)
-    -- Evita proyectar el objetivo más allá de paredes físicas reales si se mueve pegado a una.
     local finalPredictedPos = targetPosition + horizontalOffset + verticalOffset
     
     local wallClampParams = RaycastParams.new()
     wallClampParams.FilterType = Enum.RaycastFilterType.Exclude
     wallClampParams.FilterDescendantsInstances = {targetChar, LocalPlayer.Character, Camera}
     
-    -- Trazamos raycast desde la cadera actual hacia el punto futuro calculado
     local wallRay = workspace:Raycast(targetPosition, finalPredictedPos - targetPosition, wallClampParams)
     if wallRay and wallRay.Instance and wallRay.Instance.CanCollide then
-        -- Choca con estructura estática: Frenamos la predicción 0.4 studs antes del impacto del muro
         local hitDistance = (wallRay.Position - targetPosition).Magnitude
         if hitDistance > 0.5 then
             finalPredictedPos = targetPosition + (finalPredictedPos - targetPosition).Unit * (hitDistance - 0.4)
         else
-            finalPredictedPos = targetPosition -- Pegado al muro, anula offset extremo
+            finalPredictedPos = targetPosition
         end
     end
 
     return targetPosition, finalPredictedPos
 end
 
--- ============================================================================
--- 📡 FILTRADO FÍSICO AVANZADO (RESOLUCIÓN DE GHOSTING / CONEXIÓN)
--- ============================================================================
+-- Physics Loop
 RunService.Heartbeat:Connect(function()
     if MurderConfig.SmartVisibility and not hasKnifeInInventory() then return end
 
@@ -407,6 +390,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Render Loop
 RunService.RenderStepped:Connect(function()
     local hasKnife = hasKnifeInInventory()
     local allowRender = not MurderConfig.SmartVisibility or hasKnife
@@ -461,23 +445,23 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Interfaz Gráfica
-MurderTab:CreateSection("Ajustes de Cuchillo Lanzado")
-MurderTab:CreateToggle("KnifeSilentActive", "Activar Thrown Silent Aim", function(estado) MurderConfig.SilentAim = estado; saveConfig() end)
-MurderTab:CreateToggle("PrioritizeSheriffActive", "Priorizar Sheriff / Héroe", function(estado) MurderConfig.PrioritizeSheriff = estado; saveConfig() end)
-MurderTab:CreateToggle("KnifeWallCheckActive", "Activar Wall Check Optimizado", function(estado) MurderConfig.WallCheck = estado; saveConfig() end)
-MurderTab:CreateSlider("KnifeHorizSlider", "Predicción Horizontal (Cuchillo)", 0, 300, function(valor) MurderConfig.HorizontalPred = valor / 1000; saveConfig() end)
-MurderTab:CreateSlider("KnifeVertSlider", "Predicción Vertical (Saltos/Caída)", 0, 120, function(valor) MurderConfig.VerticalPred = valor / 1000; saveConfig() end)
+-- UI Setup
+MurderTab:CreateSection("Knife Settings")
+MurderTab:CreateToggle("KnifeSilentActive", "Knife Thrown Aim", function(state) MurderConfig.SilentAim = state; saveConfig() end)
+MurderTab:CreateToggle("PrioritizeSheriffActive", "Prioritize Sheriff", function(state) MurderConfig.PrioritizeSheriff = state; saveConfig() end)
+MurderTab:CreateToggle("KnifeWallCheckActive", "Wall Check", function(state) MurderConfig.WallCheck = state; saveConfig() end)
+MurderTab:CreateSlider("KnifeHorizSlider", "Horizontal Prediction", 0, 300, function(val) MurderConfig.HorizontalPred = val / 1000; saveConfig() end)
+MurderTab:CreateSlider("KnifeVertSlider", "Vertical Prediction", 0, 120, function(val) MurderConfig.VerticalPred = val / 1000; saveConfig() end)
 
-MurderTab:CreateSection("Visualizadores e Interfaz Inteligente")
-MurderTab:CreateToggle("ShowKnifePredictionVisual", "Mostrar Predicción Premium (Círculo Hueco)", function(estado) MurderConfig.ShowPredCircle = estado; saveConfig() end)
-MurderTab:CreateToggle("SmartHandVisibility", "Visibilidad Inteligente (Solo Asesino)", function(estado) MurderConfig.SmartVisibility = estado; saveConfig() end)
+MurderTab:CreateSection("Visuals")
+MurderTab:CreateToggle("ShowKnifePredictionVisual", "See Prediction", function(state) MurderConfig.ShowPredCircle = state; saveConfig() end)
+MurderTab:CreateToggle("SmartHandVisibility", "Murderer Only", function(state) MurderConfig.SmartVisibility = state; saveConfig() end)
 
-MurderTab:CreateSection("Personalización del Campo de Visión (FOV)")
-MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Mostrar Círculo de FOV", MurderConfig.FOVColor, function(estadoToggle) MurderConfig.ShowFOV = estadoToggle; saveConfig() end, function(colorSeleccionado) MurderConfig.FOVColor = colorSeleccionado; saveConfig() end)
-MurderTab:CreateSlider("FovRadiusMurder", "Tamaño del FOV", 30, 600, function(valor) MurderConfig.FOVRadius = valor; saveConfig() end)
+MurderTab:CreateSection("FOV Settings")
+MurderTab:CreateToggleColorPicker("FovVisibleMurder", "FovColorMurder", "Show FOV", MurderConfig.FOVColor, function(toggleState) MurderConfig.ShowFOV = toggleState; saveConfig() end, function(selectedColor) MurderConfig.FOVColor = selectedColor; saveConfig() end)
+MurderTab:CreateSlider("FovRadiusMurder", "FOV Size", 30, 600, function(val) MurderConfig.FOVRadius = val; saveConfig() end)
 
--- Métodos de Hooking síncronos
+-- Method Hooking
 local ClientServices = ReplicatedStorage:WaitForChild("ClientServices", 5)
 if ClientServices then
     local WeaponService = require(ClientServices:WaitForChild("WeaponService"))
