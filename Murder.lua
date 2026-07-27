@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👾 KILLER HUB | MURDER SUITE V8.3 (TRANSPARENCY FIX & OPTIMIZED + EXTENDED HITBOX)
+-- 🔪 KILLER HUB | MURDER SUITE V8.2 (TRANSPARENCY FIX & OPTIMIZED)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
@@ -25,7 +25,7 @@ local MurderConfig = {
     ShowPredCircle = false,
     SmartVisibility = false,
 
-    -- Hitbox Master & Customization Settings (Ampliada hasta 30)
+    -- Hitbox Master & Customization Settings
     HitboxEnabled = false,
     HitboxSize = 2,
     SeeHitbox = false,
@@ -162,7 +162,7 @@ local function isVisibleThroughWalls(targetChar)
 end
 
 -- ============================================================================
--- 🚨 SHERIFF DETECTION SYSTEM
+-- 🎯 SHERIFF DETECTION SYSTEM
 -- ============================================================================
 local CurrentSheriff = nil
 local lastSheriffScan = 0
@@ -374,7 +374,7 @@ local function getAdvancedKnifePrediction(targetChar)
 end
 
 -- ============================================================================
--- 🔩 HITBOX ENGINE & PHYSICS LOOP (Optimizado)
+-- 📦 HITBOX ENGINE & PHYSICS LOOP
 -- ============================================================================
 RunService.Heartbeat:Connect(function()
     local currentTime = os.clock()
@@ -383,6 +383,7 @@ RunService.Heartbeat:Connect(function()
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
             local head = player.Character:FindFirstChild("Head")
             
+            -- Dynamic Hitbox Expander & Visualizer
             if hrp and head then
                 if MurderConfig.HitboxEnabled then
                     local currentSize = MurderConfig.HitboxSize
@@ -398,11 +399,13 @@ RunService.Heartbeat:Connect(function()
                         hrp.Material = Enum.Material.Plastic
                     end
                 else
+                    -- Master Switch APAGADO: Restablecer todo a default
                     hrp.Size = Vector3.new(2, 2, 1)
                     hrp.Transparency = 1
                     hrp.Material = Enum.Material.Plastic
                 end
 
+                -- Physics Filter
                 local currentPos = hrp.Position
                 local physicsVelocity = hrp.AssemblyLinearVelocity
                 
@@ -510,7 +513,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================================
--- 🎨 USER INTERFACE CONFIGURATION
+-- 👂 CLEAN USER INTERFACE
 -- ============================================================================
 MurderTab:CreateSection("Knife Combats")
 MurderTab:CreateToggle("KnifeAimActive", "Knife Thrown aim", function(state) MurderConfig.SilentAim = state; saveConfig() end)
@@ -520,11 +523,15 @@ MurderTab:CreateSlider("KnifeHorizSlider", "Horizontal prediction", 0, 300, func
 MurderTab:CreateSlider("KnifeVertSlider", "Vertical prediction", 0, 120, function(value) MurderConfig.VerticalPred = value / 1000; saveConfig() end)
 
 MurderTab:CreateSection("Stab Hitbox Modifier")
+
+-- Texto de advertencia agregado antes de activar las Hitboxes:
+MurderTab:CreateParagraph("⚠️ Warning", "Increasing the hitbox too much can cause problems with weapon prediction, so it's only recommended to activate it when you're playing as Murder.")
+
 MurderTab:CreateToggle("IncreaseHitboxMaster", "Increase Hitbox", function(state) MurderConfig.HitboxEnabled = state; saveConfig() end)
 MurderTab:CreateToggle("SeeHitboxActive", "See hitbox", function(state) MurderConfig.SeeHitbox = state; saveConfig() end)
--- Hitbox ampliada hasta 30 de tamaño máximo
-MurderTab:CreateSlider("HitboxSizeSlider", "Stab Hitbox Size", 2, 30, function(value) MurderConfig.HitboxSize = value; saveConfig() end)
+MurderTab:CreateSlider("HitboxSizeSlider", "Stab Hitbox Size", 2, 100, function(value) MurderConfig.HitboxSize = value; saveConfig() end)
 
+-- Transparencia de 0% (opaco) a 100% (invisible) - Defecto 80%
 local transSlider = MurderTab:CreateSlider("HitboxTransparencySlider", "Hitbox Transparency (%)", 0, 100, function(value) 
     MurderConfig.HitboxTransparency = value / 100
     saveConfig() 
