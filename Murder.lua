@@ -1,5 +1,5 @@
 -- ============================================================================
--- 👾 KILLER HUB | MURDER SUITE V8.2 (TRANSPARENCY FIX & OPTIMIZED)
+-- 👾 KILLER HUB | MURDER SUITE V8.3 (TRANSPARENCY FIX & OPTIMIZED + EXTENDED HITBOX)
 -- ============================================================================
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
 
@@ -25,7 +25,7 @@ local MurderConfig = {
     ShowPredCircle = false,
     SmartVisibility = false,
 
-    -- Hitbox Master & Customization Settings
+    -- Hitbox Master & Customization Settings (Ampliada hasta 30)
     HitboxEnabled = false,
     HitboxSize = 2,
     SeeHitbox = false,
@@ -374,7 +374,7 @@ local function getAdvancedKnifePrediction(targetChar)
 end
 
 -- ============================================================================
--- 🔩 HITBOX ENGINE & PHYSICS LOOP
+-- 🔩 HITBOX ENGINE & PHYSICS LOOP (Optimizado)
 -- ============================================================================
 RunService.Heartbeat:Connect(function()
     local currentTime = os.clock()
@@ -383,7 +383,6 @@ RunService.Heartbeat:Connect(function()
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
             local head = player.Character:FindFirstChild("Head")
             
-            -- Dynamic Hitbox Expander & Visualizer
             if hrp and head then
                 if MurderConfig.HitboxEnabled then
                     local currentSize = MurderConfig.HitboxSize
@@ -399,13 +398,11 @@ RunService.Heartbeat:Connect(function()
                         hrp.Material = Enum.Material.Plastic
                     end
                 else
-                    -- Master Switch APAGADO: Restablecer todo a default
                     hrp.Size = Vector3.new(2, 2, 1)
                     hrp.Transparency = 1
                     hrp.Material = Enum.Material.Plastic
                 end
 
-                -- Physics Filter
                 local currentPos = hrp.Position
                 local physicsVelocity = hrp.AssemblyLinearVelocity
                 
@@ -513,7 +510,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================================
--- 🎨 CLEAN USER INTERFACE
+-- 🎨 USER INTERFACE CONFIGURATION
 -- ============================================================================
 MurderTab:CreateSection("Knife Combats")
 MurderTab:CreateToggle("KnifeAimActive", "Knife Thrown aim", function(state) MurderConfig.SilentAim = state; saveConfig() end)
@@ -525,9 +522,9 @@ MurderTab:CreateSlider("KnifeVertSlider", "Vertical prediction", 0, 120, functio
 MurderTab:CreateSection("Stab Hitbox Modifier")
 MurderTab:CreateToggle("IncreaseHitboxMaster", "Increase Hitbox", function(state) MurderConfig.HitboxEnabled = state; saveConfig() end)
 MurderTab:CreateToggle("SeeHitboxActive", "See hitbox", function(state) MurderConfig.SeeHitbox = state; saveConfig() end)
-MurderTab:CreateSlider("HitboxSizeSlider", "Stab Hitbox Size", 2, 15, function(value) MurderConfig.HitboxSize = value; saveConfig() end)
+-- Hitbox ampliada hasta 30 de tamaño máximo
+MurderTab:CreateSlider("HitboxSizeSlider", "Stab Hitbox Size", 2, 30, function(value) MurderConfig.HitboxSize = value; saveConfig() end)
 
--- Transparencia de 0% (opaco) a 100% (invisible) - Defecto 80%
 local transSlider = MurderTab:CreateSlider("HitboxTransparencySlider", "Hitbox Transparency (%)", 0, 100, function(value) 
     MurderConfig.HitboxTransparency = value / 100
     saveConfig() 
