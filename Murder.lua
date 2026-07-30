@@ -1,7 +1,7 @@
 -- ============================================================================
 -- 🔪 KILLER HUB | MURDER SUITE V8.2 (TRANSPARENCY FIX & OPTIMIZED)
 -- ============================================================================
-local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub2/main/Sheriff.lua"))()
+local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/s.h.e.r.i.f.f_pXalO/refs/heads/main/Sheriff.lua"))()
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
